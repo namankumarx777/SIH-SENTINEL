@@ -14,9 +14,11 @@ interface AppShellProps {
     initials?: string;
   } | null;
   role?: string;
+  canViewAudit?: boolean;
+  isPlatformAdmin?: boolean;
 }
 
-export function AppShell({ children, user, role }: AppShellProps) {
+export function AppShell({ children, user, role, canViewAudit, isPlatformAdmin }: AppShellProps) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   return (
@@ -27,11 +29,11 @@ export function AppShell({ children, user, role }: AppShellProps) {
           <aside className="hidden w-[210px] shrink-0 border-r border-border bg-surface lg:block" />
         }
       >
-        <Sidebar user={user} role={role} />
+        <Sidebar user={user} role={role} canViewAudit={canViewAudit} isPlatformAdmin={isPlatformAdmin} />
       </Suspense>
 
       {/* Mobile Navigation Drawer */}
-      <MobileNav open={mobileNavOpen} onClose={() => setMobileNavOpen(false)} />
+      <MobileNav open={mobileNavOpen} onClose={() => setMobileNavOpen(false)} canViewAudit={canViewAudit} isPlatformAdmin={isPlatformAdmin} />
 
       <div className="flex min-w-0 flex-1 flex-col h-screen overflow-hidden">
         <Suspense

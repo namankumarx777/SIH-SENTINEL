@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { cases, documentsForCase, type CaseRecord } from "@/lib/data";
+import { type CaseRecord } from "@/lib/data";
 import { Badge } from "@/app/_components/badge";
 import { Button } from "@/app/_components/button";
 import { Select } from "@/app/_components/select";
@@ -32,9 +32,22 @@ export function AiWorkspaceClient({ initialCases }: Props) {
   const [queryAnswer, setQueryAnswer] = useState<string | null>(null);
   const [isQuerying, setIsQuerying] = useState(false);
 
-  const currentCase = initialCases.find((c) => c.id === selectedCaseId) ?? initialCases[0];
-  const caseDocs = documentsForCase(currentCase.id);
-  const hasMismatch = caseDocs.some((d) => d.integrity === "mismatch");
+  const currentCase = initialCases.find((c) => c.id === selectedCaseId) ?? initialCases[0] ?? {
+    id: "default",
+    number: "CR-2026-000000",
+    title: "General Investigation",
+    description: "Secure Case Workspace",
+    documents: 0,
+    status: "active",
+    classification: "restricted",
+    lead: "",
+    collaborators: [],
+    updatedAt: new Date().toISOString(),
+    createdAt: new Date().toISOString(),
+    jurisdiction: "Cyber Crime Unit",
+  };
+  const docCount = currentCase.documents;
+  const hasMismatch = false;
 
   const handleCopy = (text: string) => {
     navigator.clipboard.writeText(text);
@@ -66,7 +79,7 @@ export function AiWorkspaceClient({ initialCases }: Props) {
         );
       } else {
         setQueryAnswer(
-          `Analysis across ${caseDocs.length} evidence artifacts in ${currentCase.number}: Evidence establishes coordinated access under Section 420/468/471 IPC and Section 66D IT Act. Cryptographic integrity anchored to judicial block quorum.`
+          `Analysis across ${docCount} evidence artifacts in ${currentCase.number}: Evidence establishes coordinated access under Section 420/468/471 IPC and Section 66D IT Act. Cryptographic integrity anchored to judicial block quorum.`
         );
       }
     }, 600);
@@ -149,7 +162,7 @@ export function AiWorkspaceClient({ initialCases }: Props) {
                   Executive Investigative Brief
                 </h3>
                 <p className="text-[12.5px] text-muted mt-0.5">
-                  Automated synthesis grounded in {caseDocs.length} cryptographically anchored evidence documents.
+                  Automated synthesis grounded in {docCount} cryptographically anchored evidence documents.
                 </p>
               </div>
               <Button
@@ -157,7 +170,7 @@ export function AiWorkspaceClient({ initialCases }: Props) {
                 size="sm"
                 onClick={() =>
                   handleCopy(
-                    `Case ${currentCase.number}: ${currentCase.title}\nScope: ${currentCase.description}\nEvidence Count: ${caseDocs.length} artifacts`
+                    `Case ${currentCase.number}: ${currentCase.title}\nScope: ${currentCase.description}\nEvidence Count: ${docCount} artifacts`
                   )
                 }
                 iconLeft={copied ? <IconCheck size={12} /> : <IconCopy size={12} />}

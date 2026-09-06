@@ -1,40 +1,25 @@
-import { NextRequest, NextResponse } from "next/server";
-import { findDocument } from "@/lib/data";
-import { getSessionUser } from "@/lib/session";
+import { requireDocumentAccess } from "@/lib/auth/authorization";
+import { NextRequest } from "next/server";
+import { db } from "@/lib/prisma";
+import { apiSuccess, handleApiError } from "@/lib/api-response";
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id } = await params;
-  const session = await getSessionUser();
+  try {
+    const { id } = await params;
+    const { documentRow, caseRow } = await requireDocumentAccess(id);
+    const versions = await db.orm.public.DocumentVersion.where({ documentId: id }).all();
 
-  const doc = findDocument(id);
-  if (!doc) {
-    return NextResponse.json({ error: "Document not found." }, { status: 404 });
+    return apiSuccess({
+      document: {
+        ...documentRow,
+        versions
+      },
+      case: caseRow,
+    });
+  } catch (error) {
+    return handleApiError(error);
   }
-
-  // External persona can only see specifically shared documents
-  if (session.role === "external" && doc.classification === "top_secret") {
-    return NextResponse.json(
-      { error: "Access Denied: Top Secret document requires Section 65B security clearance." },
-      { status: 403 }
-    );
-  }
-
-  return NextResponse.json({
-    id: doc.id,
-    caseId: doc.caseId,
-    name: doc.name,
-    type: doc.type,
-    classification: doc.classification,
-    status: doc.status,
-    integrity: doc.integrity,
-    uploadedBy: doc.uploadedBy,
-    createdAt: doc.createdAt,
-    updatedAt: doc.updatedAt,
-    versionsCount: doc.versions.length,
-    currentVersion: doc.versions.find((v) => v.current) ?? doc.versions[0],
-    blockchainAnchor: doc.anchor,
-  });
 }

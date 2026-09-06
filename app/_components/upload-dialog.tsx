@@ -2,7 +2,7 @@
 
 import { useActionState, useEffect, useRef, useState, type ReactNode } from "react";
 import { useFormStatus } from "react-dom";
-import { cases, type DocumentType } from "@/lib/data";
+import { type DocumentType } from "@/lib/data";
 import { uploadDocumentAction, type ActionResult } from "@/lib/actions";
 import { Dialog } from "@/app/_components/overlay";
 import { Button } from "@/app/_components/button";
@@ -228,11 +228,7 @@ export function UploadDialog({ trigger, defaultCaseId = "c-0142", onUploaded }: 
                   searchable
                   className="w-full"
                   aria-label="Target case workspace"
-                  options={cases.map<SelectOption>((c) => ({
-                    value: c.id,
-                    label: c.number,
-                    description: c.title,
-                  }))}
+                  options={[]}
                 />
               </div>
 

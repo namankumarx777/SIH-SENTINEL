@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { people, type Person, type Role } from "@/lib/data";
+import { type Person, type Role } from "@/lib/data";
 import { Avatar } from "@/app/_components/avatar";
 import { Select } from "@/app/_components/select";
 import {
@@ -122,16 +122,14 @@ interface UserRecord extends Person {
   lastActive: string;
 }
 
-export function AdminControlCenterClient() {
-  const [userList, setUserList] = useState<UserRecord[]>([
-    { ...people[0], status: "active", lastActive: "12 min ago" },
-    { ...people[1], status: "active", lastActive: "12 min ago" },
-    { ...people[2], status: "active", lastActive: "12 min ago" },
-    { ...people[3], status: "active", lastActive: "12 min ago" },
-    { ...people[4], status: "active", lastActive: "12 min ago" },
-    { ...people[5], status: "active", lastActive: "12 min ago" },
-    { ...people[6], status: "active", lastActive: "12 min ago" },
-  ]);
+interface AdminControlCenterClientProps {
+  initialPeople?: Person[];
+}
+
+export function AdminControlCenterClient({ initialPeople = [] }: AdminControlCenterClientProps) {
+  const [userList, setUserList] = useState<UserRecord[]>(() =>
+    initialPeople.map((p) => ({ ...p, status: "active" as const, lastActive: "recently" }))
+  );
 
   // Modal / Drawer states
   const [inviteModalOpen, setInviteModalOpen] = useState(false);

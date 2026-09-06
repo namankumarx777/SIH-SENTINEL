@@ -1,32 +1,44 @@
-import { cookies } from "next/headers";
-import { people, type Person, type Role } from "./data";
-import { ROLE_METADATA, ROLE_PERMISSIONS, type PermissionMatrix } from "./roles";
+import { redirect } from "next/navigation";
+import { type Role, type Person } from "./data";
+import { type PermissionMatrix, ROLE_METADATA, ROLE_PERMISSIONS } from "./roles";
+import { getCurrentUser } from "./auth/current-user";
 
 export { ROLE_METADATA, ROLE_PERMISSIONS, type PermissionMatrix };
 
-/**
- * Async session resolver adhering to Next.js 16 Promise-based cookies()
- * ONLY import in Server Components, Layouts, or Server Actions.
- */
-export async function getSessionUser(): Promise<{
+export interface SessionResult {
   user: Person;
   role: Role;
   permissions: PermissionMatrix;
-}> {
-  const cookieStore = await cookies();
-  const roleCookie = cookieStore.get("securecase_role")?.value as Role | undefined;
-  const activeRole: Role =
-    roleCookie && roleCookie in ROLE_PERMISSIONS ? roleCookie : "investigator";
+  canViewAudit: boolean;
+  isPlatformAdmin: boolean;
+  platformRole: string | null;
+  orgId: string;
+  userId: string;
+}
 
-  const targetPersonId = ROLE_METADATA[activeRole]?.defaultPersonId ?? "u-raj";
-  const user = people.find((p) => p.id === targetPersonId) ?? people[0];
+/**
+ * Resolves the authenticated application user from the database and returns
+ * the UI-facing session shape. Redirects to /login when unauthenticated.
+ * ONLY import in Server Components, Layouts, or Route Handlers that run in
+ * the page context.
+ */
+export async function getSessionUser(): Promise<SessionResult> {
+  const session = await getCurrentUser();
+  if (!session) {
+    redirect("/login");
+  }
+
+  const canViewAudit = session.orgRole === "ADMIN" || session.orgRole === "AUDITOR";
+  const isPlatformAdmin = session.platformRole === "PLATFORM_ADMIN";
 
   return {
-    user: {
-      ...user,
-      role: activeRole,
-    },
-    role: activeRole,
-    permissions: ROLE_PERMISSIONS[activeRole],
+    user: session.user as Person,
+    role: session.role as Role,
+    permissions: session.permissions,
+    canViewAudit,
+    isPlatformAdmin,
+    platformRole: session.platformRole,
+    orgId: session.orgId ?? "",
+    userId: session.userId,
   };
 }

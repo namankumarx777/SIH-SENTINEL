@@ -7,7 +7,12 @@ export const instant = false;
 export default async function AppLayout({ children }: { children: ReactNode }) {
   const session = await getSessionUser();
   return (
-    <AppShell user={session.user} role={session.role}>
+    <AppShell
+      user={session.user}
+      role={session.role}
+      canViewAudit={session.canViewAudit}
+      isPlatformAdmin={session.isPlatformAdmin}
+    >
       {children}
     </AppShell>
   );

@@ -1,33 +1,42 @@
+import { redirect } from "next/navigation";
 import Link from "next/link";
-import {
-  activity,
-  cases,
-  documents,
-  findCase,
-  findPerson,
-  formatTime,
-} from "@/lib/data";
+import { formatTime } from "@/lib/data";
 import { getSessionUser } from "@/lib/session";
 import { Avatar } from "@/app/_components/avatar";
-import {
-  IconChevronRight,
-} from "@/app/_components/icons";
-
-export const instant = false;
+import { IconChevronRight } from "@/app/_components/icons";
+import { listCasesForSession } from "@/lib/repos/cases";
+import { listAuditForOrg } from "@/lib/repos/audit";
+import { db } from "@/lib/prisma";
 
 export default async function Dashboard() {
   const session = await getSessionUser();
 
-  const mismatchDoc = documents.find((d) => d.integrity === "mismatch");
-  const pendingReviews = documents.filter((d) => d.status === "Review");
+  // Platform Admins must not land on the investigator dashboard.
+  // The server-side check prevents any investigator data from being fetched or rendered.
+  if (session.isPlatformAdmin) {
+    redirect("/platform-overview");
+  }
+
+  const cases = await listCasesForSession();
+  const caseIds = cases.map(c => c.id);
+  const documents = await Promise.all(
+    caseIds.map(async (caseId) => {
+      return db.orm.public.Document.where({ caseId }).all();
+    })
+  ).then(res => res.flat());
+
+  const mismatchDoc = documents.find((d: any) => d.integrity === "MISMATCH");
+  const pendingReviews = documents.filter((d: any) => d.status === "REVIEW");
+  
   const activeCases = [...cases]
     .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
     .slice(0, 4);
-  const recentActivity = activity.slice(0, 5);
 
-  const attentionCount =
-    (mismatchDoc ? 1 : 0) + pendingReviews.length + 1;
+  const recentActivity = session.canViewAudit
+    ? (await listAuditForOrg({ limit: 5 }))
+    : [];
 
+  const attentionCount = (mismatchDoc ? 1 : 0) + pendingReviews.length + 1;
   const firstName = session.user.name.split(" ")[0];
 
   return (
@@ -74,10 +83,10 @@ export default async function Dashboard() {
                   <span className="text-[12px] font-medium text-red">Integrity mismatch</span>
                 </div>
                 <div className="text-[15.5px] font-semibold text-ink">
-                  {mismatchDoc.name}
+                  {String(mismatchDoc.name)}
                 </div>
                 <p className="text-[13px] text-ink/80 leading-normal max-w-2xl">
-                  The current file differs from the recorded document fingerprint in Case {findCase(mismatchDoc.caseId)?.number ?? "CR-2026-0142"}.
+                  The current file differs from the recorded document fingerprint.
                 </p>
                 <div className="pt-0.5 flex items-center gap-3 text-[11.5px] font-mono text-muted">
                   <span>Block #1492840</span>
@@ -108,16 +117,11 @@ export default async function Dashboard() {
                 </span>
               </div>
               <div className="text-[15.5px] font-semibold text-ink">
-                {pendingReviews[0]?.name ?? "Forensic Report.pdf"}
+                {String(pendingReviews[0]?.name ?? "Forensic Report.pdf")}
               </div>
               <p className="text-[13px] text-muted leading-normal max-w-2xl">
                 Awaiting Legal Reviewer sign-off prior to court charge sheet annexation.
               </p>
-              <div className="pt-0.5 flex items-center gap-3 text-[11.5px] font-mono text-muted">
-                <span>Legal Review Directorate</span>
-                <span>·</span>
-                <span>Case CR-2026-0142</span>
-              </div>
             </div>
 
             <div className="shrink-0 pt-1 sm:pt-0">
@@ -146,11 +150,6 @@ export default async function Dashboard() {
               <p className="text-[13px] text-muted leading-normal max-w-2xl">
                 Expires in 4 days. Time-bound judicial disclosure token revocation scheduled.
               </p>
-              <div className="pt-0.5 flex items-center gap-3 text-[11.5px] font-mono text-muted">
-                <span>Case CR-2026-0141</span>
-                <span>·</span>
-                <span>Token ID: tok-court-d82</span>
-              </div>
             </div>
 
             <div className="shrink-0 pt-1 sm:pt-0">
@@ -182,7 +181,6 @@ export default async function Dashboard() {
         </div>
 
         <div className="overflow-hidden rounded-xl border border-border bg-surface">
-          {/* Header Row */}
           <div className="grid grid-cols-[1fr_180px_110px_110px_110px_32px] items-center gap-4 border-b border-border bg-surface-2/40 px-5 py-2.5 text-[11px] font-medium uppercase tracking-[0.08em] text-muted/80">
             <div>Case</div>
             <div>Lead Investigator</div>
@@ -192,17 +190,14 @@ export default async function Dashboard() {
             <div />
           </div>
 
-          {/* Body Rows */}
           <div className="divide-y divide-border">
             {activeCases.map((c) => {
-              const lead = findPerson(c.lead);
               return (
                 <Link
                   key={c.id}
                   href={`/cases/${c.id}`}
                   className="group grid grid-cols-[1fr_180px_110px_110px_110px_32px] items-center gap-4 px-5 py-4 transition-colors hover:bg-surface-2/60 cursor-pointer"
                 >
-                  {/* Primary: Case Title + Technical Monospace ID + Scope */}
                   <div className="min-w-0 pr-2">
                     <div className="font-mono text-[11.5px] font-medium text-muted/90 tracking-tight">
                       {c.number}
@@ -215,39 +210,26 @@ export default async function Dashboard() {
                     </div>
                   </div>
 
-                  {/* Secondary: Lead Investigator */}
                   <div className="flex items-center gap-2 text-[13px] text-ink min-w-0">
-                    <Avatar person={lead} size={22} />
-                    <span className="truncate font-medium">{lead?.name ?? "Lead"}</span>
+                    <Avatar person={{ name: "Lead", initials: "L" }} size={22} />
+                    <span className="truncate font-medium">Lead</span>
                   </div>
 
-                  {/* Secondary: Status (Restrained dot indicator, not an oversized pill) */}
                   <div>
                     <span className="inline-flex items-center gap-1.5 text-[12.5px] font-medium capitalize text-ink">
-                      <span
-                        className={`h-1.5 w-1.5 rounded-full ${
-                          c.status === "active"
-                            ? "bg-green"
-                            : c.status === "under_review"
-                            ? "bg-amber"
-                            : "bg-muted"
-                        }`}
-                      />
+                      <span className="h-1.5 w-1.5 rounded-full bg-green" />
                       <span>{c.status.replace("_", " ")}</span>
                     </span>
                   </div>
 
-                  {/* Tertiary: Evidence Count */}
                   <div className="font-mono text-[12.5px] text-muted">
                     {c.documents} artifacts
                   </div>
 
-                  {/* Tertiary: Timestamp */}
                   <div className="text-right font-mono text-[12px] text-muted">
                     {formatTime(c.updatedAt)}
                   </div>
 
-                  {/* Contextual Arrow on Hover */}
                   <div className="text-right text-muted opacity-0 group-hover:opacity-100 transition-opacity">
                     <IconChevronRight size={14} />
                   </div>
@@ -258,12 +240,11 @@ export default async function Dashboard() {
         </div>
       </section>
 
-      {/* 4. System Status (Quiet, Understated Trust Reassurance) */}
+      {/* 4. System Status */}
       <section className="space-y-2.5">
         <h2 className="text-[12px] font-semibold uppercase tracking-[0.08em] text-muted">
           System Status
         </h2>
-
         <div className="rounded-xl border border-border bg-surface px-5 py-3">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 divide-y sm:divide-y-0 sm:divide-x divide-border">
             <div className="flex items-center justify-between sm:justify-start sm:gap-2.5 sm:px-3 pt-2 sm:pt-0">
@@ -271,30 +252,6 @@ export default async function Dashboard() {
               <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-green">
                 <span className="h-1.5 w-1.5 rounded-full bg-green" />
                 Healthy
-              </span>
-            </div>
-
-            <div className="flex items-center justify-between sm:justify-start sm:gap-2.5 sm:px-3 pt-2 sm:pt-0">
-              <span className="text-[12.5px] text-muted">Audit ledger</span>
-              <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-green">
-                <span className="h-1.5 w-1.5 rounded-full bg-green" />
-                Healthy
-              </span>
-            </div>
-
-            <div className="flex items-center justify-between sm:justify-start sm:gap-2.5 sm:px-3 pt-2 sm:pt-0">
-              <span className="text-[12.5px] text-muted">Access controls</span>
-              <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-green">
-                <span className="h-1.5 w-1.5 rounded-full bg-green" />
-                Healthy
-              </span>
-            </div>
-
-            <div className="flex items-center justify-between sm:justify-start sm:gap-2.5 sm:px-3 pt-2 sm:pt-0">
-              <span className="text-[12.5px] text-muted">Blockchain anchoring</span>
-              <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-green">
-                <span className="h-1.5 w-1.5 rounded-full bg-green" />
-                Operational
               </span>
             </div>
           </div>
@@ -318,8 +275,6 @@ export default async function Dashboard() {
 
         <div className="overflow-hidden rounded-xl border border-border bg-surface divide-y divide-border">
           {recentActivity.map((event) => {
-            const actor = findPerson(event.actor);
-            const c = event.caseId ? findCase(event.caseId) : undefined;
             const isFailure = event.result === "failure";
 
             return (
@@ -329,18 +284,13 @@ export default async function Dashboard() {
                   isFailure ? "bg-red-bg/15" : ""
                 }`}
               >
-                <Avatar person={actor} size={22} />
+                <Avatar person={{ name: event.actor, initials: event.actor[0] }} size={22} />
                 <div className="min-w-0 flex-1 text-[13px] leading-relaxed">
                   <span className="font-semibold text-ink">
-                    {actor?.name ?? "System Enclave"}
+                    {event.actor}
                   </span>{" "}
                   <span className="text-muted">{event.action.toLowerCase()}</span>{" "}
                   <span className="font-medium text-ink">{event.resource}</span>
-                  {c && (
-                    <span className="text-muted">
-                      {" "}in <span className="font-mono text-[11.5px] text-ink">{c.number}</span>
-                    </span>
-                  )}
                   <div className="mt-0.5 text-[11px] text-muted/70 font-mono">
                     {formatTime(event.at)}
                     {event.meta && ` · ${event.meta}`}

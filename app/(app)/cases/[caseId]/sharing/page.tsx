@@ -1,47 +1,33 @@
+import { listAuditForCase, listAuditForOrg } from "@/lib/repos/audit";
+import { requireDocumentAccess, requireCaseAccess } from "@/lib/auth/authorization";
+import { findCaseForSession, listCasesForSession } from "@/lib/repos/cases";
+import { getSessionUser } from "@/lib/session";
 import { notFound } from "next/navigation";
-import { findCase } from "@/lib/data";
 import { Avatar } from "@/app/_components/avatar";
 import { Badge } from "@/app/_components/badge";
 import { Button } from "@/app/_components/button";
 import { IconClock, IconPlus, IconShare, IconX } from "@/app/_components/icons";
 import { ShareDialog } from "../_components/share-dialog";
+import { db } from "@/lib/prisma";
 
-const shares = [
-  {
-    id: "sh-1",
-    recipient: "Forensic Department",
-    document: "Witness Statement.pdf",
-    permission: "View",
-    expires: "2026-09-10",
-    sharedBy: "u-raj",
-    at: "2026-09-03T11:03:00Z",
-  },
-  {
-    id: "sh-2",
-    recipient: "External — District Court",
-    document: "FIR.pdf",
-    permission: "View",
-    expires: "2026-09-30",
-    sharedBy: "u-anita",
-    at: "2026-09-01T16:00:00Z",
-  },
-  {
-    id: "sh-3",
-    recipient: "Senior Counsel",
-    document: "Charge Sheet.pdf",
-    permission: "View + Comment",
-    expires: "2026-10-01",
-    sharedBy: "u-anita",
-    at: "2026-09-01T12:50:00Z",
-  },
-];
+interface PageProps {
+  params: Promise<{ caseId: string }>;
+}
 
 export default async function CaseSharing({
   params,
-}: PageProps<"/cases/[caseId]/sharing">) {
+}: PageProps) {
   const { caseId } = await params;
-  const c = findCase(caseId);
+  const session = await getSessionUser();
+  const c = await findCaseForSession(caseId);
   if (!c) notFound();
+
+  const documents = await db.orm.public.Document.where({ caseId }).all();
+  const docIds = documents.map(d => String(d.id));
+
+  const shares = docIds.length > 0 
+    ? await db.orm.public.Share.where((s) => s.documentId.in(docIds)).all()
+    : [];
 
   return (
     <div>
@@ -68,43 +54,41 @@ export default async function CaseSharing({
           <div>At</div>
           <div />
         </div>
-        {shares.map((s, idx) => (
-          <div
-            key={s.id}
-            className={`grid grid-cols-[1fr_1fr_140px_140px_120px_140px_40px] items-center gap-3 px-5 py-3.5 ${
-              idx === shares.length - 1 ? "" : "border-b border-border"
-            }`}
-          >
-            <div className="flex items-center gap-2.5">
-              <Avatar person={{ name: s.recipient, initials: s.recipient.slice(0, 2) }} size={28} />
-              <div className="leading-tight">
-                <div className="text-[13.5px] font-medium text-ink">{s.recipient}</div>
+        {shares.map((s: any, idx: number) => {
+          const doc = documents.find((d) => String(d.id) === String(s.documentId));
+          const recipient = String(s.email);
+          return (
+            <div
+              key={s.id}
+              className={`grid grid-cols-[1fr_1fr_140px_140px_120px_140px_40px] items-center gap-3 px-5 py-3.5 ${
+                idx === shares.length - 1 ? "" : "border-b border-border"
+              }`}
+            >
+              <div className="flex items-center gap-2.5">
+                <Avatar person={{ name: recipient, initials: recipient.slice(0, 2) }} size={28} />
+                <div className="leading-tight">
+                  <div className="text-[13.5px] font-medium text-ink">{recipient}</div>
+                </div>
               </div>
+              <div className="text-[13px] text-ink">{doc ? String(doc.name) : "Unknown"}</div>
+              <div>
+                <Badge tone="info" subtle>
+                  {String(s.role)}
+                </Badge>
+              </div>
+              <div className="text-[12.5px] text-muted">
+                <IconClock size={11} className="mr-1 inline-block align-middle" />
+                {String(s.expiration).split("T")[0]}
+              </div>
+              <div className="text-[12.5px] text-muted">{String(s.createdBy)}</div>
+              <div className="text-[12.5px] text-muted">{String(s.createdAt).split("T")[0]}</div>
+              <button className="text-muted hover:text-red" aria-label="Revoke">
+                <IconX size={14} />
+              </button>
             </div>
-            <div className="text-[13px] text-ink">{s.document}</div>
-            <div>
-              <Badge tone="info" subtle>
-                {s.permission}
-              </Badge>
-            </div>
-            <div className="text-[12.5px] text-muted">
-              <IconClock size={11} className="mr-1 inline-block align-middle" />
-              {s.expires}
-            </div>
-            <div className="text-[12.5px] text-muted">{actorName(s.sharedBy)}</div>
-            <div className="text-[12.5px] text-muted">{s.at.split("T")[0]}</div>
-            <button className="text-muted hover:text-red" aria-label="Revoke">
-              <IconX size={14} />
-            </button>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
-}
-
-function actorName(id: string) {
-  if (id === "u-raj") return "Inspector R. Sharma";
-  if (id === "u-anita") return "Reviewer A. Desai";
-  return id;
 }

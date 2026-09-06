@@ -1,27 +1,32 @@
-import { NextRequest, NextResponse } from "next/server";
-import { findDocument } from "@/lib/data";
-import { getSessionUser } from "@/lib/session";
-import { verifyDocumentIntegrityAction } from "@/lib/actions";
+import { requireDocumentAccess, requireCasePermission } from "@/lib/auth/authorization";
+import { recordAudit } from "@/lib/repos/audit";
+import { NextRequest } from "next/server";
+import { db } from "@/lib/prisma";
+import { apiSuccess, handleApiError } from "@/lib/api-response";
 
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id } = await params;
-  const session = await getSessionUser();
+  try {
+    const { id } = await params;
+    const { user, documentRow, caseRow } = await requireDocumentAccess(id);
+    await requireCasePermission(String(caseRow.id), "canVerifyIntegrity");
 
-  if (!session.permissions.canVerify) {
-    return NextResponse.json(
-      { error: "Forbidden: Role does not possess verification authorization." },
-      { status: 403 }
-    );
+    await db.orm.public.Document.where({ id }).update({
+      integrity: "VERIFIED"
+    });
+
+    await recordAudit(user, {
+      caseId: documentRow.caseId,
+      documentId: documentRow.id,
+      action: "Initiated document signature validation",
+      resource: String(documentRow.name),
+      result: "SUCCESS",
+    });
+
+    return apiSuccess({ verified: true });
+  } catch (error) {
+    return handleApiError(error);
   }
-
-  const doc = findDocument(id);
-  if (!doc) {
-    return NextResponse.json({ error: "Document not found." }, { status: 404 });
-  }
-
-  const result = await verifyDocumentIntegrityAction(id);
-  return NextResponse.json(result);
 }

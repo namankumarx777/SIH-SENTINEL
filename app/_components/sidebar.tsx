@@ -3,9 +3,28 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTransition } from "react";
-import { IconLogout } from "./icons";
+import { IconLogout, IconBuilding, IconHome } from "./icons";
 import { NAV_ITEMS } from "./mobile-nav";
 import { logoutAction } from "@/lib/actions";
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type IconFn = (props: any) => any;
+
+interface PlatformNavSection {
+  label: string;
+  items: { href: string; label: string; icon: IconFn }[];
+}
+
+const PLATFORM_ADMIN_SECTIONS: PlatformNavSection[] = [
+  {
+    label: "Overview",
+    items: [{ href: "/platform-overview", label: "Dashboard", icon: IconHome }],
+  },
+  {
+    label: "Tenant Management",
+    items: [{ href: "/organizations", label: "Organizations", icon: IconBuilding }],
+  },
+];
 
 const AVATAR_COLORS = [
   "bg-[#8B5CF6]",
@@ -55,15 +74,17 @@ interface SidebarProps {
     initials?: string;
   } | null;
   role?: string;
+  canViewAudit?: boolean;
+  isPlatformAdmin?: boolean;
 }
 
-export function Sidebar({ user, role: propRole }: SidebarProps = {}) {
+export function Sidebar({ user, role: propRole, canViewAudit, isPlatformAdmin }: SidebarProps = {}) {
   const path = usePathname() ?? "/";
   const [isLoggingOut, startLogout] = useTransition();
 
   const displayName = user?.name ?? "Naman Kumar";
   const activeRole = user?.role ?? propRole ?? "investigator";
-  const displayRole = formatRole(activeRole);
+  const displayRole = isPlatformAdmin ? "Platform Administrator" : formatRole(activeRole);
   const initials = getInitials(displayName, user?.initials);
   const avatarBg = getAvatarColor(displayName);
 
@@ -72,6 +93,8 @@ export function Sidebar({ user, role: propRole }: SidebarProps = {}) {
       await logoutAction();
     });
   };
+
+  const regularNavItems = NAV_ITEMS.filter((it) => it.href !== "/audit" || canViewAudit);
 
   return (
     <aside className="hidden w-[210px] shrink-0 lg:block">
@@ -90,31 +113,67 @@ export function Sidebar({ user, role: propRole }: SidebarProps = {}) {
         </div>
 
         {/* Primary Navigation */}
-        <nav className="flex-1 px-2.5 py-3 overflow-hidden">
-          <ul className="flex flex-col gap-0.5">
-            {NAV_ITEMS.map((it) => {
-              const Icon = it.icon;
-              const active =
-                path === it.href ||
-                (it.href !== "/dashboard" && path.startsWith(it.href + "/"));
-
-              return (
-                <li key={it.href}>
-                  <Link
-                    href={it.href}
-                    className={`flex items-center gap-2 rounded-md px-2.5 py-1.5 text-[13px] transition-colors ${
-                      active
-                        ? "bg-surface-2 font-medium text-ink"
-                        : "text-muted hover:bg-surface-2/60 hover:text-ink"
-                    }`}
-                  >
-                    <Icon size={14} className={active ? "text-ink" : "text-muted"} />
-                    <span>{it.label}</span>
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
+        <nav className="flex-1 px-2.5 py-3 overflow-y-auto overflow-x-hidden">
+          {isPlatformAdmin ? (
+            /* Grouped sections for Platform Admin */
+            <div className="flex flex-col gap-4">
+              {PLATFORM_ADMIN_SECTIONS.map((section) => (
+                <div key={section.label}>
+                  <div className="px-2.5 pb-1 text-[10.5px] font-semibold uppercase tracking-[0.1em] text-muted/50">
+                    {section.label}
+                  </div>
+                  <ul className="flex flex-col gap-0.5">
+                    {section.items.map((it) => {
+                      const Icon = it.icon;
+                      const active =
+                        path === it.href ||
+                        (it.href !== "/platform-overview" && path.startsWith(it.href + "/"));
+                      return (
+                        <li key={it.href}>
+                          <Link
+                            href={it.href}
+                            className={`flex items-center gap-2 rounded-md px-2.5 py-1.5 text-[13px] transition-colors ${
+                              active
+                                ? "bg-surface-2 font-medium text-ink"
+                                : "text-muted hover:bg-surface-2/60 hover:text-ink"
+                            }`}
+                          >
+                            <Icon size={14} className={active ? "text-ink" : "text-muted"} />
+                            <span>{it.label}</span>
+                          </Link>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          ) : (
+            /* Flat list for regular users */
+            <ul className="flex flex-col gap-0.5">
+              {regularNavItems.map((it) => {
+                const Icon = it.icon as any;
+                const active =
+                  path === it.href ||
+                  (it.href !== "/dashboard" && path.startsWith(it.href + "/"));
+                return (
+                  <li key={it.href}>
+                    <Link
+                      href={it.href}
+                      className={`flex items-center gap-2 rounded-md px-2.5 py-1.5 text-[13px] transition-colors ${
+                        active
+                          ? "bg-surface-2 font-medium text-ink"
+                          : "text-muted hover:bg-surface-2/60 hover:text-ink"
+                      }`}
+                    >
+                      {Icon && <Icon size={14} className={active ? "text-ink" : "text-muted"} />}
+                      <span>{it.label}</span>
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
         </nav>
 
         {/* Profile Footer with Logout */}

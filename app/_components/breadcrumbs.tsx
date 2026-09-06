@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { cases, documents } from "@/lib/data";
+
 import { IconChevronRight } from "./icons";
 
 export function ContextualBreadcrumbs() {
@@ -25,14 +25,12 @@ export function ContextualBreadcrumbs() {
 
     if (seg === "cases") {
       crumbs.push({ label: "Cases", href: "/cases" });
-    } else if (seg.startsWith("c-")) {
-      const c = cases.find((item) => item.id === seg);
-      crumbs.push({ label: c?.number ?? seg, href: currentPath });
+    } else if (seg.startsWith("c-") || seg.length > 20) {
+      crumbs.push({ label: seg, href: currentPath });
     } else if (seg === "documents") {
       crumbs.push({ label: "Documents", href: currentPath });
-    } else if (seg.startsWith("d-")) {
-      const d = documents.find((item) => item.id === seg);
-      crumbs.push({ label: d?.name ?? seg, href: currentPath });
+    } else if (seg.startsWith("d-") || seg.length > 20) {
+      crumbs.push({ label: seg, href: currentPath });
     } else if (seg === "integrity") {
       crumbs.push({ label: "Integrity", href: currentPath });
     } else if (seg === "people") {

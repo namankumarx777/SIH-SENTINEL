@@ -3,9 +3,7 @@
 import { useEffect, useMemo, useState, useActionState } from "react";
 import Link from "next/link";
 import {
-  findPerson,
   formatTime,
-  people,
   type CaseRecord,
   type Classification,
 } from "@/lib/data";
@@ -23,10 +21,12 @@ import {
 
 interface Props {
   initialCases: CaseRecord[];
+  initialPeople: any[];
 }
 
-export function CasesWorkspaceClient({ initialCases }: Props) {
+export function CasesWorkspaceClient({ initialCases, initialPeople }: Props) {
   const [caseList] = useState<CaseRecord[]>(initialCases);
+  const findPerson = (id: string) => initialPeople.find(p => p.id === id);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [classFilter, setClassFilter] = useState<string>("all");
@@ -235,10 +235,10 @@ export function CasesWorkspaceClient({ initialCases }: Props) {
                 className="w-[200px]"
                 options={[
                   { value: "all", label: "Lead: All" },
-                  ...people.map<SelectOption>((p) => ({
-                    value: p.id,
-                    label: p.name,
-                    description: p.role,
+                  ...initialPeople.map<SelectOption>((p) => ({
+                    value: String(p.id),
+                    label: String(p.name),
+                    description: String(p.role),
                   })),
                 ]}
               />

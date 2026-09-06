@@ -1,6 +1,8 @@
+import { listAuditForCase, listAuditForOrg } from "@/lib/repos/audit";
+import { requireDocumentAccess, requireCaseAccess } from "@/lib/auth/authorization";
+import { findCaseForSession, listCasesForSession } from "@/lib/repos/cases";
 import { type ReactNode } from "react";
 import { notFound } from "next/navigation";
-import { cases, findCase } from "@/lib/data";
 import { getSessionUser } from "@/lib/session";
 import {
   IconActivity,
@@ -12,12 +14,6 @@ import {
 import { CaseHeaderContext } from "./_components/case-header-context";
 
 
-export const instant = false;
-
-export async function generateStaticParams() {
-  return cases.map((c) => ({ caseId: c.id }));
-}
-
 interface LayoutProps {
   children: ReactNode;
   params: Promise<{ caseId: string }>;
@@ -28,10 +24,10 @@ export default async function CaseLayout({
   params,
 }: LayoutProps) {
   const { caseId } = await params;
-  const caseRecord = findCase(caseId);
+  const session = await getSessionUser();
+  const caseRecord = await findCaseForSession(caseId);
   if (!caseRecord) notFound();
 
-  const session = await getSessionUser();
   const basePath = `/cases/${caseId}`;
 
   const tabs = [
@@ -81,4 +77,3 @@ export default async function CaseLayout({
     </CaseHeaderContext>
   );
 }
-

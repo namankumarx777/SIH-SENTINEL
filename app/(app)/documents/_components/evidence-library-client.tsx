@@ -3,10 +3,8 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import {
-  cases,
-  documents,
-  findCase,
   formatTime,
+  type CaseRecord,
   type DocumentRecord,
   type DocumentType,
 } from "@/lib/data";
@@ -31,6 +29,7 @@ import {
 
 interface Props {
   initialDocuments: DocumentRecord[];
+  initialCases: CaseRecord[];
   canUpload: boolean;
 }
 
@@ -77,8 +76,9 @@ function getTypeConfig(type: DocumentType) {
   }
 }
 
-export function EvidenceLibraryClient({ initialDocuments, canUpload }: Props) {
+export function EvidenceLibraryClient({ initialDocuments, initialCases, canUpload }: Props) {
   const [docList, setDocList] = useState<DocumentRecord[]>(initialDocuments);
+  const findCase = (id: string) => initialCases.find(c => c.id === id);
   const [searchQuery, setSearchQuery] = useState("");
   const [integrityTab, setIntegrityTab] = useState<IntegrityFilterTab>("all");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
@@ -254,7 +254,7 @@ export function EvidenceLibraryClient({ initialDocuments, canUpload }: Props) {
               <IconFolder size={13} className="text-muted/70" />
             </div>
             <div className="text-[20px] font-semibold text-ink tracking-tight font-mono">
-              {cases.length}
+              {initialCases.length}
             </div>
             <div className="text-[11px] text-muted">
               Bound forensic cases
@@ -354,7 +354,7 @@ export function EvidenceLibraryClient({ initialDocuments, canUpload }: Props) {
               className="min-w-[115px]"
               options={[
                 { value: "all", label: "Case: All", icon: <IconFolder size={13} /> },
-                ...cases.map<SelectOption>((c) => ({
+                ...initialCases.map<SelectOption>((c) => ({
                   value: c.id,
                   label: c.number,
                   description: c.title,

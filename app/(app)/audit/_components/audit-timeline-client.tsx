@@ -3,10 +3,6 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import {
-  activity,
-  findCase,
-  findDocument,
-  findPerson,
   formatDateTime,
   formatTime,
   type ActivityEvent,
@@ -63,12 +59,10 @@ export function AuditTimelineClient({ initialActivity }: Props) {
       // Search Query
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase().trim();
-        const p = findPerson(item.actor);
-        const c = item.caseId ? findCase(item.caseId) : undefined;
-        const matchesActor = (p?.name ?? item.actor).toLowerCase().includes(q);
+        const matchesActor = item.actor.toLowerCase().includes(q);
         const matchesAction = item.action.toLowerCase().includes(q);
         const matchesResource = item.resource.toLowerCase().includes(q);
-        const matchesCase = (c?.number ?? item.caseId ?? "").toLowerCase().includes(q);
+        const matchesCase = (item.caseId ?? "").toLowerCase().includes(q);
         const matchesMeta = (item.meta ?? "").toLowerCase().includes(q);
         const matchesId = item.id.toLowerCase().includes(q);
 
@@ -104,12 +98,11 @@ export function AuditTimelineClient({ initialActivity }: Props) {
 
   // Export CSV
   const handleExportCsv = () => {
-    const header = "EventID,Timestamp,Actor,Role,Action,Resource,CaseID,Result,Metadata\n";
+    const header = "EventID,Timestamp,Actor,Action,Resource,CaseID,Result,Metadata\n";
     const rows = filteredEvents
       .map((item) => {
-        const p = findPerson(item.actor);
-        const c = item.caseId ? findCase(item.caseId)?.number ?? item.caseId : "";
-        return `"${item.id}","${item.at}","${p?.name ?? item.actor}","${p?.role ?? "System"}","${item.action}","${item.resource}","${c}","${item.result}","${item.meta ?? ""}"`;
+        const c = item.caseId ?? "";
+        return `"${item.id}","${item.at}","${item.actor}","${item.action}","${item.resource}","${c}","${item.result}","${item.meta ?? ""}"`;
       })
       .join("\n");
 
@@ -266,10 +259,9 @@ export function AuditTimelineClient({ initialActivity }: Props) {
                 <div className="absolute left-2.5 sm:left-3 top-3 bottom-3 w-px bg-border pointer-events-none" />
 
                 {events.map((event) => {
-                  const actor = findPerson(event.actor);
-                  const caseRecord = event.caseId ? findCase(event.caseId) : undefined;
+                  const actor = { name: event.actor, initials: event.actor.slice(0, 2).toUpperCase() };
                   const isFailure = event.result === "failure";
-                  const isSystem = event.actor === "system";
+                  const isSystem = event.actor.toLowerCase() === "system";
 
                   return (
                     <div
@@ -322,14 +314,14 @@ export function AuditTimelineClient({ initialActivity }: Props) {
                             {/* Narrative Sentence */}
                             <div className="text-[14px] text-ink leading-relaxed">
                               <strong className="font-semibold text-ink">
-                                {actor?.name ?? "System Enclave"}
+                                {event.actor}
                               </strong>{" "}
                               <span className="text-muted/90 font-normal">
                                 {event.action.toLowerCase()}
                               </span>{" "}
-                              {event.documentId && caseRecord ? (
+                              {event.documentId && event.caseId ? (
                                 <Link
-                                  href={`/cases/${caseRecord.id}/documents/${event.documentId}`}
+                                  href={`/cases/${event.caseId}/documents/${event.documentId}`}
                                   onClick={(e) => e.stopPropagation()}
                                   className="font-semibold text-ink underline hover:text-black"
                                 >
@@ -340,15 +332,15 @@ export function AuditTimelineClient({ initialActivity }: Props) {
                                   {event.resource}
                                 </strong>
                               )}
-                              {caseRecord && (
+                              {event.caseId && (
                                 <span className="text-muted font-normal">
                                   {" "}in{" "}
                                   <Link
-                                    href={`/cases/${caseRecord.id}`}
+                                    href={`/cases/${event.caseId}`}
                                     onClick={(e) => e.stopPropagation()}
                                     className="font-mono text-[12px] font-medium text-ink hover:underline"
                                   >
-                                    {caseRecord.number}
+                                    Case {event.caseId.slice(0, 8)}
                                   </Link>
                                 </span>
                               )}
@@ -494,7 +486,7 @@ export function AuditTimelineClient({ initialActivity }: Props) {
                   <div className="flex justify-between px-3.5 py-2.5">
                     <span className="text-muted">Actor</span>
                     <span className="font-semibold text-ink">
-                      {findPerson(selectedEvent.actor)?.name ?? selectedEvent.actor}
+                      {selectedEvent.actor}
                     </span>
                   </div>
                   <div className="flex justify-between px-3.5 py-2.5">
@@ -505,7 +497,7 @@ export function AuditTimelineClient({ initialActivity }: Props) {
                     <div className="flex justify-between px-3.5 py-2.5">
                       <span className="text-muted">Bound Case</span>
                       <span className="font-mono text-ink font-medium">
-                        {findCase(selectedEvent.caseId)?.number ?? selectedEvent.caseId}
+                        {selectedEvent.caseId}
                       </span>
                     </div>
                   )}

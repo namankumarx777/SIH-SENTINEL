@@ -1,19 +1,28 @@
+import { requireDocumentAccess, requireCaseAccess } from "@/lib/auth/authorization";
+import { findCaseForSession } from "@/lib/repos/cases";
+import { getSessionUser } from "@/lib/session";
 import { notFound } from "next/navigation";
 import { Avatar } from "@/app/_components/avatar";
 import { Badge } from "@/app/_components/badge";
 import { Button } from "@/app/_components/button";
-import { findCase, people } from "@/lib/data";
 import { IconPlus, IconUser } from "@/app/_components/icons";
+import { getPeopleByIds } from "@/lib/repos/people";
+
+interface PageProps {
+  params: Promise<{ caseId: string }>;
+}
 
 export default async function CasePeople({
   params,
-}: PageProps<"/cases/[caseId]/people">) {
+}: PageProps) {
   const { caseId } = await params;
-  const c = findCase(caseId);
+  const session = await getSessionUser();
+  const c = await findCaseForSession(caseId);
   if (!c) notFound();
-  const team = people.filter((p) =>
-    p.id === c.lead || c.collaborators.includes(p.id),
-  );
+
+  const personIds = Array.from(new Set([c.lead, ...c.collaborators].filter(Boolean)));
+  const peopleMap = await getPeopleByIds(personIds, session.orgId);
+  const team = personIds.map((id) => peopleMap.get(id)).filter((p) => !!p);
 
   return (
     <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1fr_320px]">
@@ -25,7 +34,7 @@ export default async function CasePeople({
           <div>Access</div>
           <div>Added</div>
         </div>
-        {team.map((p, idx) => (
+        {team.map((p: any, idx) => (
           <div
             key={p.id}
             className={`grid grid-cols-[1fr_180px_140px_120px_120px] items-center gap-3 px-5 py-3.5 ${

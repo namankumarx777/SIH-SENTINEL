@@ -1,8 +1,9 @@
-import { activity } from "@/lib/data";
+import { listAuditForOrg } from "@/lib/repos/audit";
 import { AuditTimelineClient } from "./_components/audit-timeline-client";
 
 export const instant = false;
 
-export default function AuditPage() {
-  return <AuditTimelineClient initialActivity={activity} />;
+export default async function AuditPage() {
+  const events = await listAuditForOrg();
+  return <AuditTimelineClient initialActivity={events} />;
 }

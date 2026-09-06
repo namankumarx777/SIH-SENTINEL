@@ -1,6 +1,8 @@
+import { requireDocumentAccess, requireCaseAccess } from "@/lib/auth/authorization";
+import { findCaseForSession, listCasesForSession } from "@/lib/repos/cases";
+import { getSessionUser } from "@/lib/session";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { cases, documentsForCase, findCase } from "@/lib/data";
 import { Badge } from "@/app/_components/badge";
 import { Button } from "@/app/_components/button";
 import {
@@ -13,10 +15,7 @@ import {
   IconShieldCheck,
 } from "@/app/_components/icons";
 import { IntegrityDashboardClient } from "./_components/integrity-dashboard-client";
-
-export async function generateStaticParams() {
-  return cases.map((c) => ({ caseId: c.id }));
-}
+import { db } from "@/lib/prisma";
 
 export default async function CaseIntegrityPage({
   params,
@@ -24,12 +23,18 @@ export default async function CaseIntegrityPage({
   params: Promise<{ caseId: string }>;
 }) {
   const { caseId } = await params;
-  const caseRecord = findCase(caseId);
+  const session = await getSessionUser();
+  const caseRecord = await findCaseForSession(caseId);
   if (!caseRecord) notFound();
 
-  const docs = documentsForCase(caseId);
-  const mismatchDocs = docs.filter((d) => d.integrity === "mismatch");
-  const verifiedDocs = docs.filter((d) => d.integrity === "verified");
+  const docs = await db.orm.public.Document.where({ caseId }).all();
+  for (const d of docs) {
+    const versions = await db.orm.public.DocumentVersion.where({ documentId: String(d.id) }).all();
+    (d as any).versions = versions;
+  }
+
+  const mismatchDocs = docs.filter((d: any) => d.integrity === "MISMATCH");
+  const verifiedDocs = docs.filter((d: any) => d.integrity === "VERIFIED");
 
   return (
     <div className="space-y-8">
@@ -70,13 +75,13 @@ export default async function CaseIntegrityPage({
                 {mismatchDocs.length} evidence artifact{mismatchDocs.length === 1 ? "" : "s"} in this case failed hash verification against the recorded blockchain anchor.
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
-                {mismatchDocs.map((d) => (
+                {mismatchDocs.map((d: any) => (
                   <Link
                     key={d.id}
                     href={`/cases/${caseId}/documents/${d.id}`}
                     className="inline-flex items-center gap-2 rounded-md border border-red/30 bg-white px-3 py-1.5 text-[12.5px] font-medium text-red hover:bg-red-bg"
                   >
-                    <span>Investigate {d.name}</span>
+                    <span>Investigate {String(d.name)}</span>
                     <span className="text-[11px] font-mono">→</span>
                   </Link>
                 ))}
@@ -141,7 +146,7 @@ export default async function CaseIntegrityPage({
       </div>
 
       {/* Interactive Verification Matrix */}
-      <IntegrityDashboardClient docs={docs} caseId={caseId} />
+      <IntegrityDashboardClient docs={docs as any} caseId={caseId} />
     </div>
   );
 }

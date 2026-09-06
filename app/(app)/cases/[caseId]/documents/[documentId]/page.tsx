@@ -1,6 +1,9 @@
+import { listAuditForCase, listAuditForOrg } from "@/lib/repos/audit";
+import { requireDocumentAccess, requireCaseAccess } from "@/lib/auth/authorization";
+import { findCaseForSession, listCasesForSession } from "@/lib/repos/cases";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { documents, findCase, findDocument, formatDateTime } from "@/lib/data";
+import { formatDateTime } from "@/lib/data";
 import { getSessionUser } from "@/lib/session";
 import { Badge } from "@/app/_components/badge";
 import { Button } from "@/app/_components/button";
@@ -21,15 +24,7 @@ import { IntegrityPanel } from "./_components/integrity-panel";
 import { PdfPreview } from "./_components/pdf-preview";
 import { ShareDialog } from "../../_components/share-dialog";
 import { VersionTimeline } from "./_components/version-timeline";
-
-export const instant = false;
-
-export async function generateStaticParams() {
-  return documents.map((d) => ({
-    caseId: d.caseId,
-    documentId: d.id,
-  }));
-}
+import { db } from "@/lib/prisma";
 
 interface PageProps {
   params: Promise<{ caseId: string; documentId: string }>;
@@ -37,13 +32,16 @@ interface PageProps {
 
 export default async function DocumentViewer({ params }: PageProps) {
   const { caseId, documentId } = await params;
-  const caseRecord = findCase(caseId);
-  const doc = findDocument(documentId);
+  const session = await getSessionUser();
+  const caseRecord = await findCaseForSession(caseId);
+  const { documentRow: doc } = await requireDocumentAccess(documentId);
   if (!caseRecord || !doc) notFound();
 
-  const session = await getSessionUser();
-  const current = doc.versions.find((v) => v.current) ?? doc.versions[0];
-  const isMismatch = doc.integrity === "mismatch";
+  const versions = await db.orm.public.DocumentVersion.where({ documentId: String(doc.id) }).all();
+  const current = versions.find((v) => v.current) ?? versions[0];
+  const isMismatch = doc.integrity === "MISMATCH";
+
+  const uploader = await db.orm.public.User.where({ id: String(doc.uploadedBy) }).first();
 
   return (
     <div className="anim-fade space-y-6">
@@ -54,22 +52,22 @@ export default async function DocumentViewer({ params }: PageProps) {
           <div className="flex flex-wrap items-center gap-2 text-[12px]">
             <span
               className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 font-semibold text-[11px] border uppercase ${getTypeBadge(
-                doc.type
+                String(doc.type)
               )}`}
             >
-              <IconFile size={11} /> {doc.type}
+              <IconFile size={11} /> {String(doc.type)}
             </span>
 
             <span className="text-border-strong select-none">·</span>
 
             <span className="rounded-md border border-border/80 bg-surface-2 px-2 py-0.5 font-mono text-[11px] uppercase text-muted font-medium">
-              {doc.classification}
+              {String(doc.classification)}
             </span>
 
             <span className="text-border-strong select-none">·</span>
 
             <span className="font-mono text-[11px] text-muted">
-              REF: {doc.previewData?.documentNumber ?? caseRecord.number}
+              REF: {caseRecord.number}
             </span>
 
             <span className="text-border-strong select-none">·</span>
@@ -78,17 +76,17 @@ export default async function DocumentViewer({ params }: PageProps) {
           </div>
 
           <h1 className="mt-2 text-[28px] font-semibold tracking-tight text-ink">
-            {doc.name}
+            {String(doc.name)}
           </h1>
 
           <div className="mt-2.5 flex flex-wrap items-center gap-3 text-[12.5px] text-muted">
             <span>
-              Version <span className="font-mono font-semibold text-ink">{current.version}</span>
+              Version <span className="font-mono font-semibold text-ink">{current?.version ?? "v1.0"}</span>
             </span>
             <span>·</span>
-            <span className="font-mono">{current.size}</span>
+            <span className="font-mono">{current?.size ?? "0 B"}</span>
             <span>·</span>
-            <span>Updated {formatDateTime(doc.updatedAt)}</span>
+            <span>Updated {formatDateTime(String(doc.updatedAt))}</span>
             <span>·</span>
             {isMismatch ? (
               <span className="inline-flex items-center gap-1.5 rounded-full bg-red-bg px-2.5 py-0.5 text-[11.5px] font-semibold text-red border border-red/30 shadow-2xs">
@@ -120,7 +118,7 @@ export default async function DocumentViewer({ params }: PageProps) {
 
           {session.permissions.canShare && (
             <ShareDialog
-              defaultResource={doc.name}
+              defaultResource={String(doc.name)}
               trigger={
                 <Button variant="secondary" iconLeft={<IconShare size={13} />}>
                   Share Securely
@@ -129,7 +127,7 @@ export default async function DocumentViewer({ params }: PageProps) {
             />
           )}
 
-          <DocumentActions documentId={doc.id} caseId={caseId} doc={doc} />
+          <DocumentActions documentId={String(doc.id)} caseId={caseId} doc={doc as any} />
         </div>
       </div>
 
@@ -137,13 +135,13 @@ export default async function DocumentViewer({ params }: PageProps) {
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1fr_360px] items-start">
         {/* Left Forensic Document Viewer */}
         <div className="min-w-0 overflow-hidden rounded-xl border border-border bg-surface shadow-sm">
-          <PdfPreview doc={doc} />
+          <PdfPreview doc={doc as any} />
         </div>
 
         {/* Right Rail Forensic Dossier */}
         <aside className="flex flex-col gap-6">
           {/* Integrity Panel - Progressive Disclosure */}
-          <IntegrityPanel doc={doc} />
+          <IntegrityPanel doc={doc as any} />
 
           {/* Document Metadata Details */}
           <div className="rounded-xl border border-border bg-surface p-5 text-[13px] shadow-sm">
@@ -152,27 +150,27 @@ export default async function DocumentViewer({ params }: PageProps) {
               <span>Document Metadata</span>
             </div>
             <div className="divide-y divide-border">
-              <Detail label="Version" value={current.version} isMono />
-              <Detail label="Category" value={doc.type} />
-              <Detail label="Classification" value={doc.classification} />
-              <Detail label="Intake Officer" value={uploaderName(doc.uploadedBy)} />
-              <Detail label="Intake Timestamp" value={formatDateTime(doc.createdAt)} />
-              <Detail label="Total Pages" value={String(doc.pages ?? 4)} isMono />
-              <Detail label="Bitstream Size" value={current.size} isMono />
+              <Detail label="Version" value={String(current?.version ?? "v1.0")} isMono />
+              <Detail label="Category" value={String(doc.type)} />
+              <Detail label="Classification" value={String(doc.classification)} />
+              <Detail label="Intake Officer" value={uploader ? String(uploader.name) : String(doc.uploadedBy)} />
+              <Detail label="Intake Timestamp" value={formatDateTime(String(doc.createdAt))} />
+              <Detail label="Total Pages" value={"4"} isMono />
+              <Detail label="Bitstream Size" value={String(current?.size ?? "0 B")} isMono />
               <Detail label="Enclave Node" value="SEC-ENCLAVE-DL-02" isMono />
             </div>
           </div>
 
           {/* Cryptographic Anchor Card with One-Click Copy */}
           <HashAnchorCard
-            hash={current.hash}
-            blockNumber={doc.previewData?.technicalMetadata.blockNumber ?? 1492710}
+            hash={String(current?.hash ?? "")}
+            blockNumber={1492710}
             cipher="AES-256-GCM"
             signatureStandard="Valid (ECDSA-P256)"
           />
 
           {/* Version Timeline */}
-          <VersionTimeline versions={doc.versions} />
+          <VersionTimeline versions={versions as any[]} />
         </aside>
       </div>
     </div>
@@ -196,14 +194,6 @@ function Detail({
       </span>
     </div>
   );
-}
-
-function uploaderName(id: string) {
-  if (id === "u-raj") return "Inspector Raj Sharma";
-  if (id === "u-anita") return "Reviewer Anita Desai";
-  if (id === "u-vikram") return "Forensic Vikram Iyer";
-  if (id === "u-neha") return "Auditor Neha Verma";
-  return id;
 }
 
 function getTypeBadge(type: string) {

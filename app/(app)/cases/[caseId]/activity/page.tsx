@@ -1,17 +1,21 @@
+import { listAuditForCase } from "@/lib/repos/audit";
+import { findCaseForSession } from "@/lib/repos/cases";
 import { notFound } from "next/navigation";
 import { Avatar } from "@/app/_components/avatar";
 import { Badge } from "@/app/_components/badge";
-import { activityFor, findCase, formatTime } from "@/lib/data";
+import { formatTime, type ActivityEvent } from "@/lib/data";
 import { IconActivity, IconFilter } from "@/app/_components/icons";
 import { Button } from "@/app/_components/button";
 
-export default async function CaseActivity({
-  params,
-}: PageProps<"/cases/[caseId]/activity">) {
+interface PageProps {
+  params: Promise<{ caseId: string }>;
+}
+
+export default async function CaseActivity({ params }: PageProps) {
   const { caseId } = await params;
-  const c = findCase(caseId);
+  const c = await findCaseForSession(caseId);
   if (!c) notFound();
-  const events = activityFor(caseId);
+  const events = await listAuditForCase(caseId);
 
   return (
     <div>
@@ -29,7 +33,7 @@ export default async function CaseActivity({
 
       <ol className="relative">
         <span className="absolute left-[15px] top-3 bottom-3 w-px bg-border" />
-        {events.map((e) => {
+        {events.map((e: ActivityEvent) => {
           const resultTone =
             e.result === "failure"
               ? "danger"
@@ -52,9 +56,9 @@ export default async function CaseActivity({
                   {e.meta ? <span>· {e.meta}</span> : null}
                 </div>
                 <div className="mt-1 flex items-center gap-2">
-                  <Avatar person={{ name: actorName(e.actor), initials: actorInitials(e.actor) }} size={22} />
+                  <Avatar person={{ name: e.actor, initials: getInitials(e.actor) }} size={22} />
                   <div className="text-[13.5px] leading-snug">
-                    <span className="font-medium text-ink">{actorName(e.actor)}</span>{" "}
+                    <span className="font-medium text-ink">{e.actor}</span>{" "}
                     <span className="text-muted">{e.action.toLowerCase()}</span>{" "}
                     <span className="font-medium text-ink">{e.resource}</span>
                   </div>
@@ -71,17 +75,11 @@ export default async function CaseActivity({
   );
 }
 
-function actorName(id: string) {
-  if (id === "u-raj") return "Inspector Raj Sharma";
-  if (id === "u-anita") return "Reviewer Anita Desai";
-  if (id === "u-vikram") return "Forensic Officer Vikram Iyer";
-  if (id === "u-neha") return "Auditor Neha Verma";
-  if (id === "u-rahul") return "Senior Reviewer Rahul Saxena";
-  if (id === "system") return "System";
-  return id;
-}
-
-function actorInitials(id: string) {
-  if (id === "system") return "SY";
-  return id.replace("u-", "").slice(0, 2).toUpperCase();
+function getInitials(name: string) {
+  if (!name) return "??";
+  const parts = name.trim().split(/\s+/);
+  if (parts.length >= 2) {
+    return (parts[0][0] + parts[1][0]).toUpperCase();
+  }
+  return name.slice(0, 2).toUpperCase();
 }

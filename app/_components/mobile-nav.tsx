@@ -26,13 +26,23 @@ export const NAV_ITEMS = [
   { href: "/admin", label: "Administration", icon: IconBuilding },
 ];
 
+export const PLATFORM_ADMIN_ITEMS = [
+  { href: "/platform-overview", label: "Dashboard", icon: IconHome },
+  { href: "/organizations", label: "Organizations", icon: IconBuilding },
+];
+
 interface MobileNavProps {
   open: boolean;
   onClose: () => void;
+  canViewAudit?: boolean;
+  isPlatformAdmin?: boolean;
 }
 
-export function MobileNav({ open, onClose }: MobileNavProps) {
+export function MobileNav({ open, onClose, canViewAudit, isPlatformAdmin }: MobileNavProps) {
   const path = usePathname() ?? "/";
+  const navItems = isPlatformAdmin
+    ? PLATFORM_ADMIN_ITEMS
+    : NAV_ITEMS.filter((it) => it.href !== "/audit" || canViewAudit);
 
   // Close on Escape
   useEffect(() => {
@@ -92,11 +102,13 @@ export function MobileNav({ open, onClose }: MobileNavProps) {
         {/* Navigation */}
         <nav className="flex-1 overflow-y-auto px-2.5 py-3">
           <ul className="flex flex-col gap-0.5">
-            {NAV_ITEMS.map((it) => {
+            {navItems.map((it) => {
               const Icon = it.icon;
+              const rootPaths = ["/dashboard", "/platform-overview"];
               const active =
                 path === it.href ||
-                (it.href !== "/dashboard" && path.startsWith(it.href + "/"));
+                (!rootPaths.includes(it.href) && path.startsWith(it.href + "/"));
+
 
               return (
                 <li key={it.href}>

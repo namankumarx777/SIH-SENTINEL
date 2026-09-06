@@ -1,0 +1,2146 @@
+[
+  {
+    "id": "schema.public",
+    "label": "Create schema \"public\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres"
+    },
+    "precheck": [],
+    "execute": [
+      {
+        "description": "Create schema \"public\"",
+        "sql": "CREATE SCHEMA IF NOT EXISTS \"public\"",
+        "params": []
+      }
+    ],
+    "postcheck": []
+  },
+  {
+    "id": "table.auditLog",
+    "label": "Create table \"auditLog\"",
+    "summary": "Creates table \"auditLog\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "auditLog"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"auditLog\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"auditLog\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"auditLog\"",
+        "sql": "CREATE TABLE \"public\".\"auditLog\" (\n  \"action\" text NOT NULL,\n  \"actorId\" uuid NOT NULL,\n  \"caseId\" uuid,\n  \"createdAt\" timestamptz DEFAULT (now()) NOT NULL,\n  \"documentId\" uuid,\n  \"id\" uuid NOT NULL,\n  \"meta\" text,\n  \"organizationId\" uuid NOT NULL,\n  \"resource\" text NOT NULL,\n  \"result\" text DEFAULT 'SUCCESS' NOT NULL,\n  PRIMARY KEY (\"id\"),\n  CONSTRAINT \"auditLog_result_check_1455f3c8\" CHECK (\"result\" IN ('SUCCESS', 'INFO', 'WARNING', 'FAILURE'))\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"auditLog\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"auditLog\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "table.case",
+    "label": "Create table \"case\"",
+    "summary": "Creates table \"case\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "case"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"case\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"case\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"case\"",
+        "sql": "CREATE TABLE \"public\".\"case\" (\n  \"caseNumber\" SERIAL NOT NULL,\n  \"classification\" text DEFAULT 'CONFIDENTIAL' NOT NULL,\n  \"createdAt\" timestamptz DEFAULT (now()) NOT NULL,\n  \"description\" text NOT NULL,\n  \"id\" uuid NOT NULL,\n  \"jurisdiction\" text NOT NULL,\n  \"organizationId\" uuid NOT NULL,\n  \"status\" text DEFAULT 'ACTIVE' NOT NULL,\n  \"title\" text NOT NULL,\n  \"updatedAt\" timestamptz NOT NULL,\n  PRIMARY KEY (\"id\"),\n  CONSTRAINT \"case_classification_check_70411d25\" CHECK (\"classification\" IN ('RESTRICTED', 'CONFIDENTIAL', 'INTERNAL', 'PUBLIC')),\n  CONSTRAINT \"case_status_check_b3fb7583\" CHECK (\"status\" IN ('ACTIVE', 'UNDER_REVIEW', 'CLOSED', 'ARCHIVED'))\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"case\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"case\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "table.caseMember",
+    "label": "Create table \"caseMember\"",
+    "summary": "Creates table \"caseMember\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "caseMember"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"caseMember\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"caseMember\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"caseMember\"",
+        "sql": "CREATE TABLE \"public\".\"caseMember\" (\n  \"caseId\" uuid NOT NULL,\n  \"createdAt\" timestamptz DEFAULT (now()) NOT NULL,\n  \"id\" uuid NOT NULL,\n  \"isLead\" bool DEFAULT false NOT NULL,\n  \"updatedAt\" timestamptz NOT NULL,\n  \"userId\" uuid NOT NULL,\n  PRIMARY KEY (\"id\")\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"caseMember\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"caseMember\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "table.document",
+    "label": "Create table \"document\"",
+    "summary": "Creates table \"document\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "document"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"document\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"document\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"document\"",
+        "sql": "CREATE TABLE \"public\".\"document\" (\n  \"caseId\" uuid NOT NULL,\n  \"classification\" text DEFAULT 'CONFIDENTIAL' NOT NULL,\n  \"createdAt\" timestamptz DEFAULT (now()) NOT NULL,\n  \"description\" text,\n  \"id\" uuid NOT NULL,\n  \"integrity\" text DEFAULT 'VERIFIED' NOT NULL,\n  \"name\" text NOT NULL,\n  \"status\" text DEFAULT 'VERIFIED' NOT NULL,\n  \"tags\" text[] NOT NULL,\n  \"type\" text NOT NULL,\n  \"updatedAt\" timestamptz NOT NULL,\n  PRIMARY KEY (\"id\"),\n  CONSTRAINT \"document_classification_check_70411d25\" CHECK (\"classification\" IN ('RESTRICTED', 'CONFIDENTIAL', 'INTERNAL', 'PUBLIC')),\n  CONSTRAINT \"document_integrity_check_199fc3cf\" CHECK (\"integrity\" IN ('VERIFIED', 'PENDING', 'MISMATCH', 'REVOKED')),\n  CONSTRAINT \"document_status_check_9291dd6b\" CHECK (\"status\" IN ('VERIFIED', 'REVIEW', 'DRAFT', 'REJECTED')),\n  CONSTRAINT \"document_tags_elem_not_null_aecbe9e2\" CHECK (array_position(\"tags\", NULL) IS NULL),\n  CONSTRAINT \"document_type_check_9868eec6\" CHECK (\"type\" IN ('FIR', 'STATEMENT', 'FORENSIC', 'LEGAL', 'EVIDENCE', 'REPORT', 'FILING'))\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"document\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"document\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "table.documentVersion",
+    "label": "Create table \"documentVersion\"",
+    "summary": "Creates table \"documentVersion\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "documentVersion"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"documentVersion\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"documentVersion\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"documentVersion\"",
+        "sql": "CREATE TABLE \"public\".\"documentVersion\" (\n  \"approvedAt\" timestamptz,\n  \"approverId\" uuid,\n  \"current\" bool DEFAULT false NOT NULL,\n  \"documentId\" uuid NOT NULL,\n  \"hash\" text NOT NULL,\n  \"id\" uuid NOT NULL,\n  \"notes\" text,\n  \"size\" text NOT NULL,\n  \"storagePath\" text NOT NULL,\n  \"uploadedAt\" timestamptz DEFAULT (now()) NOT NULL,\n  \"uploadedById\" uuid NOT NULL,\n  \"version\" text NOT NULL,\n  PRIMARY KEY (\"id\")\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"documentVersion\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"documentVersion\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "table.organization",
+    "label": "Create table \"organization\"",
+    "summary": "Creates table \"organization\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "organization"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"organization\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"organization\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"organization\"",
+        "sql": "CREATE TABLE \"public\".\"organization\" (\n  \"createdAt\" timestamptz DEFAULT (now()) NOT NULL,\n  \"id\" uuid NOT NULL,\n  \"name\" text NOT NULL,\n  \"updatedAt\" timestamptz NOT NULL,\n  PRIMARY KEY (\"id\")\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"organization\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"organization\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "table.organizationMember",
+    "label": "Create table \"organizationMember\"",
+    "summary": "Creates table \"organizationMember\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "organizationMember"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"organizationMember\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"organizationMember\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"organizationMember\"",
+        "sql": "CREATE TABLE \"public\".\"organizationMember\" (\n  \"badge\" text,\n  \"createdAt\" timestamptz DEFAULT (now()) NOT NULL,\n  \"department\" text,\n  \"id\" uuid NOT NULL,\n  \"initials\" text,\n  \"organizationId\" uuid NOT NULL,\n  \"role\" text NOT NULL,\n  \"updatedAt\" timestamptz NOT NULL,\n  \"userId\" uuid NOT NULL,\n  PRIMARY KEY (\"id\"),\n  CONSTRAINT \"organizationMember_role_check_57dbd473\" CHECK (\"role\" IN ('ADMIN', 'INVESTIGATOR', 'REVIEWER', 'FORENSIC', 'AUDITOR'))\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"organizationMember\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"organizationMember\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "table.share",
+    "label": "Create table \"share\"",
+    "summary": "Creates table \"share\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "share"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"share\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"share\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"share\"",
+        "sql": "CREATE TABLE \"public\".\"share\" (\n  \"createdAt\" timestamptz DEFAULT (now()) NOT NULL,\n  \"documentId\" uuid NOT NULL,\n  \"expiration\" timestamptz NOT NULL,\n  \"id\" uuid NOT NULL,\n  \"justification\" text NOT NULL,\n  \"permission\" text NOT NULL,\n  \"recipient\" text NOT NULL,\n  \"sharedById\" uuid NOT NULL,\n  PRIMARY KEY (\"id\")\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"share\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"share\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "table.user",
+    "label": "Create table \"user\"",
+    "summary": "Creates table \"user\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "user"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"user\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"user\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"user\"",
+        "sql": "CREATE TABLE \"public\".\"user\" (\n  \"authId\" text NOT NULL,\n  \"createdAt\" timestamptz DEFAULT (now()) NOT NULL,\n  \"email\" text NOT NULL,\n  \"id\" uuid NOT NULL,\n  \"name\" text NOT NULL,\n  \"updatedAt\" timestamptz NOT NULL,\n  PRIMARY KEY (\"id\")\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"user\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"user\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "unique.case.case_organizationId_caseNumber_key",
+    "label": "Add unique constraint on \"case\" (organizationId, caseNumber)",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "unique",
+        "name": "case_organizationId_caseNumber_key",
+        "table": "case"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure constraint \"case_organizationId_caseNumber_key\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "case_organizationId_caseNumber_key",
+          "public",
+          "\"public\".\"case\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add unique constraint \"case_organizationId_caseNumber_key\"",
+        "sql": "ALTER TABLE \"public\".\"case\" ADD CONSTRAINT \"case_organizationId_caseNumber_key\" UNIQUE (\"organizationId\", \"caseNumber\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify constraint \"case_organizationId_caseNumber_key\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "case_organizationId_caseNumber_key",
+          "public",
+          "\"public\".\"case\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "unique.caseMember.caseMember_caseId_userId_key",
+    "label": "Add unique constraint on \"caseMember\" (caseId, userId)",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "unique",
+        "name": "caseMember_caseId_userId_key",
+        "table": "caseMember"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure constraint \"caseMember_caseId_userId_key\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "caseMember_caseId_userId_key",
+          "public",
+          "\"public\".\"caseMember\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add unique constraint \"caseMember_caseId_userId_key\"",
+        "sql": "ALTER TABLE \"public\".\"caseMember\" ADD CONSTRAINT \"caseMember_caseId_userId_key\" UNIQUE (\"caseId\", \"userId\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify constraint \"caseMember_caseId_userId_key\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "caseMember_caseId_userId_key",
+          "public",
+          "\"public\".\"caseMember\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "unique.organizationMember.organizationMember_organizationId_userId_key",
+    "label": "Add unique constraint on \"organizationMember\" (organizationId, userId)",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "unique",
+        "name": "organizationMember_organizationId_userId_key",
+        "table": "organizationMember"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure constraint \"organizationMember_organizationId_userId_key\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "organizationMember_organizationId_userId_key",
+          "public",
+          "\"public\".\"organizationMember\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add unique constraint \"organizationMember_organizationId_userId_key\"",
+        "sql": "ALTER TABLE \"public\".\"organizationMember\" ADD CONSTRAINT \"organizationMember_organizationId_userId_key\" UNIQUE (\"organizationId\", \"userId\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify constraint \"organizationMember_organizationId_userId_key\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "organizationMember_organizationId_userId_key",
+          "public",
+          "\"public\".\"organizationMember\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "unique.user.user_authId_key",
+    "label": "Add unique constraint on \"user\" (authId)",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "unique",
+        "name": "user_authId_key",
+        "table": "user"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure constraint \"user_authId_key\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "user_authId_key",
+          "public",
+          "\"public\".\"user\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add unique constraint \"user_authId_key\"",
+        "sql": "ALTER TABLE \"public\".\"user\" ADD CONSTRAINT \"user_authId_key\" UNIQUE (\"authId\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify constraint \"user_authId_key\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "user_authId_key",
+          "public",
+          "\"public\".\"user\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "unique.user.user_email_key",
+    "label": "Add unique constraint on \"user\" (email)",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "unique",
+        "name": "user_email_key",
+        "table": "user"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure constraint \"user_email_key\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "user_email_key",
+          "public",
+          "\"public\".\"user\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add unique constraint \"user_email_key\"",
+        "sql": "ALTER TABLE \"public\".\"user\" ADD CONSTRAINT \"user_email_key\" UNIQUE (\"email\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify constraint \"user_email_key\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "user_email_key",
+          "public",
+          "\"public\".\"user\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.auditLog.auditLog_actorId_idx_a58f6b4b",
+    "label": "Create index \"auditLog_actorId_idx_a58f6b4b\" on \"auditLog\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "auditLog_actorId_idx_a58f6b4b",
+        "table": "auditLog"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"auditLog_actorId_idx_a58f6b4b\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"auditLog_actorId_idx_a58f6b4b\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"auditLog_actorId_idx_a58f6b4b\"",
+        "sql": "CREATE INDEX \"auditLog_actorId_idx_a58f6b4b\" ON \"public\".\"auditLog\" (\"actorId\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"auditLog_actorId_idx_a58f6b4b\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"auditLog_actorId_idx_a58f6b4b\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.auditLog.auditLog_caseId_idx_f7093793",
+    "label": "Create index \"auditLog_caseId_idx_f7093793\" on \"auditLog\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "auditLog_caseId_idx_f7093793",
+        "table": "auditLog"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"auditLog_caseId_idx_f7093793\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"auditLog_caseId_idx_f7093793\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"auditLog_caseId_idx_f7093793\"",
+        "sql": "CREATE INDEX \"auditLog_caseId_idx_f7093793\" ON \"public\".\"auditLog\" (\"caseId\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"auditLog_caseId_idx_f7093793\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"auditLog_caseId_idx_f7093793\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.auditLog.auditLog_documentId_idx_825ef746",
+    "label": "Create index \"auditLog_documentId_idx_825ef746\" on \"auditLog\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "auditLog_documentId_idx_825ef746",
+        "table": "auditLog"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"auditLog_documentId_idx_825ef746\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"auditLog_documentId_idx_825ef746\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"auditLog_documentId_idx_825ef746\"",
+        "sql": "CREATE INDEX \"auditLog_documentId_idx_825ef746\" ON \"public\".\"auditLog\" (\"documentId\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"auditLog_documentId_idx_825ef746\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"auditLog_documentId_idx_825ef746\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.auditLog.auditLog_organizationId_idx_2e17ef41",
+    "label": "Create index \"auditLog_organizationId_idx_2e17ef41\" on \"auditLog\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "auditLog_organizationId_idx_2e17ef41",
+        "table": "auditLog"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"auditLog_organizationId_idx_2e17ef41\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"auditLog_organizationId_idx_2e17ef41\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"auditLog_organizationId_idx_2e17ef41\"",
+        "sql": "CREATE INDEX \"auditLog_organizationId_idx_2e17ef41\" ON \"public\".\"auditLog\" (\"organizationId\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"auditLog_organizationId_idx_2e17ef41\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"auditLog_organizationId_idx_2e17ef41\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.case.case_organizationId_idx_2e17ef41",
+    "label": "Create index \"case_organizationId_idx_2e17ef41\" on \"case\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "case_organizationId_idx_2e17ef41",
+        "table": "case"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"case_organizationId_idx_2e17ef41\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"case_organizationId_idx_2e17ef41\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"case_organizationId_idx_2e17ef41\"",
+        "sql": "CREATE INDEX \"case_organizationId_idx_2e17ef41\" ON \"public\".\"case\" (\"organizationId\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"case_organizationId_idx_2e17ef41\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"case_organizationId_idx_2e17ef41\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.caseMember.caseMember_caseId_idx_f7093793",
+    "label": "Create index \"caseMember_caseId_idx_f7093793\" on \"caseMember\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "caseMember_caseId_idx_f7093793",
+        "table": "caseMember"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"caseMember_caseId_idx_f7093793\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"caseMember_caseId_idx_f7093793\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"caseMember_caseId_idx_f7093793\"",
+        "sql": "CREATE INDEX \"caseMember_caseId_idx_f7093793\" ON \"public\".\"caseMember\" (\"caseId\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"caseMember_caseId_idx_f7093793\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"caseMember_caseId_idx_f7093793\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.caseMember.caseMember_userId_idx_a489d58a",
+    "label": "Create index \"caseMember_userId_idx_a489d58a\" on \"caseMember\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "caseMember_userId_idx_a489d58a",
+        "table": "caseMember"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"caseMember_userId_idx_a489d58a\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"caseMember_userId_idx_a489d58a\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"caseMember_userId_idx_a489d58a\"",
+        "sql": "CREATE INDEX \"caseMember_userId_idx_a489d58a\" ON \"public\".\"caseMember\" (\"userId\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"caseMember_userId_idx_a489d58a\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"caseMember_userId_idx_a489d58a\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.document.document_caseId_idx_f7093793",
+    "label": "Create index \"document_caseId_idx_f7093793\" on \"document\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "document_caseId_idx_f7093793",
+        "table": "document"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"document_caseId_idx_f7093793\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"document_caseId_idx_f7093793\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"document_caseId_idx_f7093793\"",
+        "sql": "CREATE INDEX \"document_caseId_idx_f7093793\" ON \"public\".\"document\" (\"caseId\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"document_caseId_idx_f7093793\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"document_caseId_idx_f7093793\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.documentVersion.documentVersion_approverId_idx_a4f46e61",
+    "label": "Create index \"documentVersion_approverId_idx_a4f46e61\" on \"documentVersion\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "documentVersion_approverId_idx_a4f46e61",
+        "table": "documentVersion"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"documentVersion_approverId_idx_a4f46e61\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"documentVersion_approverId_idx_a4f46e61\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"documentVersion_approverId_idx_a4f46e61\"",
+        "sql": "CREATE INDEX \"documentVersion_approverId_idx_a4f46e61\" ON \"public\".\"documentVersion\" (\"approverId\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"documentVersion_approverId_idx_a4f46e61\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"documentVersion_approverId_idx_a4f46e61\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.documentVersion.documentVersion_documentId_idx_825ef746",
+    "label": "Create index \"documentVersion_documentId_idx_825ef746\" on \"documentVersion\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "documentVersion_documentId_idx_825ef746",
+        "table": "documentVersion"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"documentVersion_documentId_idx_825ef746\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"documentVersion_documentId_idx_825ef746\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"documentVersion_documentId_idx_825ef746\"",
+        "sql": "CREATE INDEX \"documentVersion_documentId_idx_825ef746\" ON \"public\".\"documentVersion\" (\"documentId\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"documentVersion_documentId_idx_825ef746\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"documentVersion_documentId_idx_825ef746\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.documentVersion.documentVersion_uploadedById_idx_b92fad21",
+    "label": "Create index \"documentVersion_uploadedById_idx_b92fad21\" on \"documentVersion\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "documentVersion_uploadedById_idx_b92fad21",
+        "table": "documentVersion"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"documentVersion_uploadedById_idx_b92fad21\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"documentVersion_uploadedById_idx_b92fad21\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"documentVersion_uploadedById_idx_b92fad21\"",
+        "sql": "CREATE INDEX \"documentVersion_uploadedById_idx_b92fad21\" ON \"public\".\"documentVersion\" (\"uploadedById\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"documentVersion_uploadedById_idx_b92fad21\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"documentVersion_uploadedById_idx_b92fad21\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.organizationMember.organizationMember_organizationId_idx_2e17ef41",
+    "label": "Create index \"organizationMember_organizationId_idx_2e17ef41\" on \"organizationMember\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "organizationMember_organizationId_idx_2e17ef41",
+        "table": "organizationMember"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"organizationMember_organizationId_idx_2e17ef41\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"organizationMember_organizationId_idx_2e17ef41\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"organizationMember_organizationId_idx_2e17ef41\"",
+        "sql": "CREATE INDEX \"organizationMember_organizationId_idx_2e17ef41\" ON \"public\".\"organizationMember\" (\"organizationId\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"organizationMember_organizationId_idx_2e17ef41\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"organizationMember_organizationId_idx_2e17ef41\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.organizationMember.organizationMember_userId_idx_a489d58a",
+    "label": "Create index \"organizationMember_userId_idx_a489d58a\" on \"organizationMember\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "organizationMember_userId_idx_a489d58a",
+        "table": "organizationMember"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"organizationMember_userId_idx_a489d58a\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"organizationMember_userId_idx_a489d58a\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"organizationMember_userId_idx_a489d58a\"",
+        "sql": "CREATE INDEX \"organizationMember_userId_idx_a489d58a\" ON \"public\".\"organizationMember\" (\"userId\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"organizationMember_userId_idx_a489d58a\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"organizationMember_userId_idx_a489d58a\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.share.share_documentId_idx_825ef746",
+    "label": "Create index \"share_documentId_idx_825ef746\" on \"share\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "share_documentId_idx_825ef746",
+        "table": "share"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"share_documentId_idx_825ef746\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"share_documentId_idx_825ef746\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"share_documentId_idx_825ef746\"",
+        "sql": "CREATE INDEX \"share_documentId_idx_825ef746\" ON \"public\".\"share\" (\"documentId\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"share_documentId_idx_825ef746\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"share_documentId_idx_825ef746\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.share.share_sharedById_idx_d164d715",
+    "label": "Create index \"share_sharedById_idx_d164d715\" on \"share\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "share_sharedById_idx_d164d715",
+        "table": "share"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"share_sharedById_idx_d164d715\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"share_sharedById_idx_d164d715\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"share_sharedById_idx_d164d715\"",
+        "sql": "CREATE INDEX \"share_sharedById_idx_d164d715\" ON \"public\".\"share\" (\"sharedById\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"share_sharedById_idx_d164d715\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"share_sharedById_idx_d164d715\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "foreignKey.auditLog.auditLog_organizationId_fkey",
+    "label": "Add foreign key \"auditLog_organizationId_fkey\" on \"auditLog\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "foreignKey",
+        "name": "auditLog_organizationId_fkey",
+        "table": "auditLog"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure FK \"auditLog_organizationId_fkey\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "auditLog_organizationId_fkey",
+          "public",
+          "\"public\".\"auditLog\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add FK \"auditLog_organizationId_fkey\"",
+        "sql": "ALTER TABLE \"public\".\"auditLog\"\nADD CONSTRAINT \"auditLog_organizationId_fkey\"\nFOREIGN KEY (\"organizationId\")\nREFERENCES \"public\".\"organization\" (\"id\")\nON DELETE CASCADE"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify FK \"auditLog_organizationId_fkey\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "auditLog_organizationId_fkey",
+          "public",
+          "\"public\".\"auditLog\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "foreignKey.auditLog.auditLog_caseId_fkey",
+    "label": "Add foreign key \"auditLog_caseId_fkey\" on \"auditLog\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "foreignKey",
+        "name": "auditLog_caseId_fkey",
+        "table": "auditLog"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure FK \"auditLog_caseId_fkey\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "auditLog_caseId_fkey",
+          "public",
+          "\"public\".\"auditLog\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add FK \"auditLog_caseId_fkey\"",
+        "sql": "ALTER TABLE \"public\".\"auditLog\"\nADD CONSTRAINT \"auditLog_caseId_fkey\"\nFOREIGN KEY (\"caseId\")\nREFERENCES \"public\".\"case\" (\"id\")\nON DELETE SET NULL"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify FK \"auditLog_caseId_fkey\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "auditLog_caseId_fkey",
+          "public",
+          "\"public\".\"auditLog\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "foreignKey.auditLog.auditLog_documentId_fkey",
+    "label": "Add foreign key \"auditLog_documentId_fkey\" on \"auditLog\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "foreignKey",
+        "name": "auditLog_documentId_fkey",
+        "table": "auditLog"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure FK \"auditLog_documentId_fkey\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "auditLog_documentId_fkey",
+          "public",
+          "\"public\".\"auditLog\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add FK \"auditLog_documentId_fkey\"",
+        "sql": "ALTER TABLE \"public\".\"auditLog\"\nADD CONSTRAINT \"auditLog_documentId_fkey\"\nFOREIGN KEY (\"documentId\")\nREFERENCES \"public\".\"document\" (\"id\")\nON DELETE SET NULL"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify FK \"auditLog_documentId_fkey\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "auditLog_documentId_fkey",
+          "public",
+          "\"public\".\"auditLog\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "foreignKey.auditLog.auditLog_actorId_fkey",
+    "label": "Add foreign key \"auditLog_actorId_fkey\" on \"auditLog\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "foreignKey",
+        "name": "auditLog_actorId_fkey",
+        "table": "auditLog"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure FK \"auditLog_actorId_fkey\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "auditLog_actorId_fkey",
+          "public",
+          "\"public\".\"auditLog\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add FK \"auditLog_actorId_fkey\"",
+        "sql": "ALTER TABLE \"public\".\"auditLog\"\nADD CONSTRAINT \"auditLog_actorId_fkey\"\nFOREIGN KEY (\"actorId\")\nREFERENCES \"public\".\"user\" (\"id\")\nON DELETE RESTRICT"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify FK \"auditLog_actorId_fkey\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "auditLog_actorId_fkey",
+          "public",
+          "\"public\".\"auditLog\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "foreignKey.case.case_organizationId_fkey",
+    "label": "Add foreign key \"case_organizationId_fkey\" on \"case\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "foreignKey",
+        "name": "case_organizationId_fkey",
+        "table": "case"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure FK \"case_organizationId_fkey\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "case_organizationId_fkey",
+          "public",
+          "\"public\".\"case\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add FK \"case_organizationId_fkey\"",
+        "sql": "ALTER TABLE \"public\".\"case\"\nADD CONSTRAINT \"case_organizationId_fkey\"\nFOREIGN KEY (\"organizationId\")\nREFERENCES \"public\".\"organization\" (\"id\")\nON DELETE CASCADE"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify FK \"case_organizationId_fkey\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "case_organizationId_fkey",
+          "public",
+          "\"public\".\"case\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "foreignKey.caseMember.caseMember_caseId_fkey",
+    "label": "Add foreign key \"caseMember_caseId_fkey\" on \"caseMember\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "foreignKey",
+        "name": "caseMember_caseId_fkey",
+        "table": "caseMember"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure FK \"caseMember_caseId_fkey\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "caseMember_caseId_fkey",
+          "public",
+          "\"public\".\"caseMember\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add FK \"caseMember_caseId_fkey\"",
+        "sql": "ALTER TABLE \"public\".\"caseMember\"\nADD CONSTRAINT \"caseMember_caseId_fkey\"\nFOREIGN KEY (\"caseId\")\nREFERENCES \"public\".\"case\" (\"id\")\nON DELETE CASCADE"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify FK \"caseMember_caseId_fkey\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "caseMember_caseId_fkey",
+          "public",
+          "\"public\".\"caseMember\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "foreignKey.caseMember.caseMember_userId_fkey",
+    "label": "Add foreign key \"caseMember_userId_fkey\" on \"caseMember\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "foreignKey",
+        "name": "caseMember_userId_fkey",
+        "table": "caseMember"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure FK \"caseMember_userId_fkey\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "caseMember_userId_fkey",
+          "public",
+          "\"public\".\"caseMember\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add FK \"caseMember_userId_fkey\"",
+        "sql": "ALTER TABLE \"public\".\"caseMember\"\nADD CONSTRAINT \"caseMember_userId_fkey\"\nFOREIGN KEY (\"userId\")\nREFERENCES \"public\".\"user\" (\"id\")\nON DELETE CASCADE"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify FK \"caseMember_userId_fkey\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "caseMember_userId_fkey",
+          "public",
+          "\"public\".\"caseMember\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "foreignKey.document.document_caseId_fkey",
+    "label": "Add foreign key \"document_caseId_fkey\" on \"document\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "foreignKey",
+        "name": "document_caseId_fkey",
+        "table": "document"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure FK \"document_caseId_fkey\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "document_caseId_fkey",
+          "public",
+          "\"public\".\"document\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add FK \"document_caseId_fkey\"",
+        "sql": "ALTER TABLE \"public\".\"document\"\nADD CONSTRAINT \"document_caseId_fkey\"\nFOREIGN KEY (\"caseId\")\nREFERENCES \"public\".\"case\" (\"id\")\nON DELETE CASCADE"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify FK \"document_caseId_fkey\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "document_caseId_fkey",
+          "public",
+          "\"public\".\"document\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "foreignKey.documentVersion.documentVersion_documentId_fkey",
+    "label": "Add foreign key \"documentVersion_documentId_fkey\" on \"documentVersion\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "foreignKey",
+        "name": "documentVersion_documentId_fkey",
+        "table": "documentVersion"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure FK \"documentVersion_documentId_fkey\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "documentVersion_documentId_fkey",
+          "public",
+          "\"public\".\"documentVersion\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add FK \"documentVersion_documentId_fkey\"",
+        "sql": "ALTER TABLE \"public\".\"documentVersion\"\nADD CONSTRAINT \"documentVersion_documentId_fkey\"\nFOREIGN KEY (\"documentId\")\nREFERENCES \"public\".\"document\" (\"id\")\nON DELETE CASCADE"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify FK \"documentVersion_documentId_fkey\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "documentVersion_documentId_fkey",
+          "public",
+          "\"public\".\"documentVersion\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "foreignKey.documentVersion.documentVersion_uploadedById_fkey",
+    "label": "Add foreign key \"documentVersion_uploadedById_fkey\" on \"documentVersion\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "foreignKey",
+        "name": "documentVersion_uploadedById_fkey",
+        "table": "documentVersion"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure FK \"documentVersion_uploadedById_fkey\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "documentVersion_uploadedById_fkey",
+          "public",
+          "\"public\".\"documentVersion\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add FK \"documentVersion_uploadedById_fkey\"",
+        "sql": "ALTER TABLE \"public\".\"documentVersion\"\nADD CONSTRAINT \"documentVersion_uploadedById_fkey\"\nFOREIGN KEY (\"uploadedById\")\nREFERENCES \"public\".\"user\" (\"id\")\nON DELETE RESTRICT"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify FK \"documentVersion_uploadedById_fkey\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "documentVersion_uploadedById_fkey",
+          "public",
+          "\"public\".\"documentVersion\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "foreignKey.documentVersion.documentVersion_approverId_fkey",
+    "label": "Add foreign key \"documentVersion_approverId_fkey\" on \"documentVersion\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "foreignKey",
+        "name": "documentVersion_approverId_fkey",
+        "table": "documentVersion"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure FK \"documentVersion_approverId_fkey\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "documentVersion_approverId_fkey",
+          "public",
+          "\"public\".\"documentVersion\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add FK \"documentVersion_approverId_fkey\"",
+        "sql": "ALTER TABLE \"public\".\"documentVersion\"\nADD CONSTRAINT \"documentVersion_approverId_fkey\"\nFOREIGN KEY (\"approverId\")\nREFERENCES \"public\".\"user\" (\"id\")\nON DELETE SET NULL"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify FK \"documentVersion_approverId_fkey\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "documentVersion_approverId_fkey",
+          "public",
+          "\"public\".\"documentVersion\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "foreignKey.organizationMember.organizationMember_organizationId_fkey",
+    "label": "Add foreign key \"organizationMember_organizationId_fkey\" on \"organizationMember\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "foreignKey",
+        "name": "organizationMember_organizationId_fkey",
+        "table": "organizationMember"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure FK \"organizationMember_organizationId_fkey\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "organizationMember_organizationId_fkey",
+          "public",
+          "\"public\".\"organizationMember\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add FK \"organizationMember_organizationId_fkey\"",
+        "sql": "ALTER TABLE \"public\".\"organizationMember\"\nADD CONSTRAINT \"organizationMember_organizationId_fkey\"\nFOREIGN KEY (\"organizationId\")\nREFERENCES \"public\".\"organization\" (\"id\")\nON DELETE CASCADE"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify FK \"organizationMember_organizationId_fkey\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "organizationMember_organizationId_fkey",
+          "public",
+          "\"public\".\"organizationMember\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "foreignKey.organizationMember.organizationMember_userId_fkey",
+    "label": "Add foreign key \"organizationMember_userId_fkey\" on \"organizationMember\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "foreignKey",
+        "name": "organizationMember_userId_fkey",
+        "table": "organizationMember"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure FK \"organizationMember_userId_fkey\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "organizationMember_userId_fkey",
+          "public",
+          "\"public\".\"organizationMember\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add FK \"organizationMember_userId_fkey\"",
+        "sql": "ALTER TABLE \"public\".\"organizationMember\"\nADD CONSTRAINT \"organizationMember_userId_fkey\"\nFOREIGN KEY (\"userId\")\nREFERENCES \"public\".\"user\" (\"id\")\nON DELETE CASCADE"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify FK \"organizationMember_userId_fkey\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "organizationMember_userId_fkey",
+          "public",
+          "\"public\".\"organizationMember\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "foreignKey.share.share_documentId_fkey",
+    "label": "Add foreign key \"share_documentId_fkey\" on \"share\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "foreignKey",
+        "name": "share_documentId_fkey",
+        "table": "share"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure FK \"share_documentId_fkey\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "share_documentId_fkey",
+          "public",
+          "\"public\".\"share\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add FK \"share_documentId_fkey\"",
+        "sql": "ALTER TABLE \"public\".\"share\"\nADD CONSTRAINT \"share_documentId_fkey\"\nFOREIGN KEY (\"documentId\")\nREFERENCES \"public\".\"document\" (\"id\")\nON DELETE CASCADE"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify FK \"share_documentId_fkey\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "share_documentId_fkey",
+          "public",
+          "\"public\".\"share\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "foreignKey.share.share_sharedById_fkey",
+    "label": "Add foreign key \"share_sharedById_fkey\" on \"share\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "foreignKey",
+        "name": "share_sharedById_fkey",
+        "table": "share"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure FK \"share_sharedById_fkey\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "share_sharedById_fkey",
+          "public",
+          "\"public\".\"share\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add FK \"share_sharedById_fkey\"",
+        "sql": "ALTER TABLE \"public\".\"share\"\nADD CONSTRAINT \"share_sharedById_fkey\"\nFOREIGN KEY (\"sharedById\")\nREFERENCES \"public\".\"user\" (\"id\")\nON DELETE RESTRICT"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify FK \"share_sharedById_fkey\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "share_sharedById_fkey",
+          "public",
+          "\"public\".\"share\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "rowLevelSecurity.public.auditLog",
+    "label": "Enable row-level security on \"auditLog\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "rowLevelSecurity",
+        "name": "auditLog"
+      }
+    },
+    "precheck": [
+      {
+        "description": "check RLS is not already enabled on \"auditLog\"",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_class\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"relnamespace\" WHERE (\"n\".\"nspname\" = $1 AND \"c\".\"relname\" = $2 AND NOT (\"c\".\"relrowsecurity\"))) AS \"result\"",
+        "params": [
+          "public",
+          "auditLog"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "enable row-level security on \"auditLog\"",
+        "sql": "ALTER TABLE \"public\".\"auditLog\" ENABLE ROW LEVEL SECURITY"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify row-level security is enabled on \"auditLog\"",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_class\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"relnamespace\" WHERE (\"n\".\"nspname\" = $1 AND \"c\".\"relname\" = $2 AND \"c\".\"relrowsecurity\")) AS \"result\"",
+        "params": [
+          "public",
+          "auditLog"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "rowLevelSecurity.public.case",
+    "label": "Enable row-level security on \"case\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "rowLevelSecurity",
+        "name": "case"
+      }
+    },
+    "precheck": [
+      {
+        "description": "check RLS is not already enabled on \"case\"",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_class\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"relnamespace\" WHERE (\"n\".\"nspname\" = $1 AND \"c\".\"relname\" = $2 AND NOT (\"c\".\"relrowsecurity\"))) AS \"result\"",
+        "params": [
+          "public",
+          "case"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "enable row-level security on \"case\"",
+        "sql": "ALTER TABLE \"public\".\"case\" ENABLE ROW LEVEL SECURITY"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify row-level security is enabled on \"case\"",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_class\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"relnamespace\" WHERE (\"n\".\"nspname\" = $1 AND \"c\".\"relname\" = $2 AND \"c\".\"relrowsecurity\")) AS \"result\"",
+        "params": [
+          "public",
+          "case"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "rowLevelSecurity.public.caseMember",
+    "label": "Enable row-level security on \"caseMember\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "rowLevelSecurity",
+        "name": "caseMember"
+      }
+    },
+    "precheck": [
+      {
+        "description": "check RLS is not already enabled on \"caseMember\"",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_class\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"relnamespace\" WHERE (\"n\".\"nspname\" = $1 AND \"c\".\"relname\" = $2 AND NOT (\"c\".\"relrowsecurity\"))) AS \"result\"",
+        "params": [
+          "public",
+          "caseMember"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "enable row-level security on \"caseMember\"",
+        "sql": "ALTER TABLE \"public\".\"caseMember\" ENABLE ROW LEVEL SECURITY"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify row-level security is enabled on \"caseMember\"",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_class\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"relnamespace\" WHERE (\"n\".\"nspname\" = $1 AND \"c\".\"relname\" = $2 AND \"c\".\"relrowsecurity\")) AS \"result\"",
+        "params": [
+          "public",
+          "caseMember"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "rowLevelSecurity.public.document",
+    "label": "Enable row-level security on \"document\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "rowLevelSecurity",
+        "name": "document"
+      }
+    },
+    "precheck": [
+      {
+        "description": "check RLS is not already enabled on \"document\"",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_class\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"relnamespace\" WHERE (\"n\".\"nspname\" = $1 AND \"c\".\"relname\" = $2 AND NOT (\"c\".\"relrowsecurity\"))) AS \"result\"",
+        "params": [
+          "public",
+          "document"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "enable row-level security on \"document\"",
+        "sql": "ALTER TABLE \"public\".\"document\" ENABLE ROW LEVEL SECURITY"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify row-level security is enabled on \"document\"",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_class\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"relnamespace\" WHERE (\"n\".\"nspname\" = $1 AND \"c\".\"relname\" = $2 AND \"c\".\"relrowsecurity\")) AS \"result\"",
+        "params": [
+          "public",
+          "document"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "rowLevelSecurity.public.documentVersion",
+    "label": "Enable row-level security on \"documentVersion\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "rowLevelSecurity",
+        "name": "documentVersion"
+      }
+    },
+    "precheck": [
+      {
+        "description": "check RLS is not already enabled on \"documentVersion\"",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_class\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"relnamespace\" WHERE (\"n\".\"nspname\" = $1 AND \"c\".\"relname\" = $2 AND NOT (\"c\".\"relrowsecurity\"))) AS \"result\"",
+        "params": [
+          "public",
+          "documentVersion"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "enable row-level security on \"documentVersion\"",
+        "sql": "ALTER TABLE \"public\".\"documentVersion\" ENABLE ROW LEVEL SECURITY"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify row-level security is enabled on \"documentVersion\"",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_class\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"relnamespace\" WHERE (\"n\".\"nspname\" = $1 AND \"c\".\"relname\" = $2 AND \"c\".\"relrowsecurity\")) AS \"result\"",
+        "params": [
+          "public",
+          "documentVersion"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "rowLevelSecurity.public.organization",
+    "label": "Enable row-level security on \"organization\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "rowLevelSecurity",
+        "name": "organization"
+      }
+    },
+    "precheck": [
+      {
+        "description": "check RLS is not already enabled on \"organization\"",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_class\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"relnamespace\" WHERE (\"n\".\"nspname\" = $1 AND \"c\".\"relname\" = $2 AND NOT (\"c\".\"relrowsecurity\"))) AS \"result\"",
+        "params": [
+          "public",
+          "organization"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "enable row-level security on \"organization\"",
+        "sql": "ALTER TABLE \"public\".\"organization\" ENABLE ROW LEVEL SECURITY"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify row-level security is enabled on \"organization\"",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_class\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"relnamespace\" WHERE (\"n\".\"nspname\" = $1 AND \"c\".\"relname\" = $2 AND \"c\".\"relrowsecurity\")) AS \"result\"",
+        "params": [
+          "public",
+          "organization"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "rowLevelSecurity.public.organizationMember",
+    "label": "Enable row-level security on \"organizationMember\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "rowLevelSecurity",
+        "name": "organizationMember"
+      }
+    },
+    "precheck": [
+      {
+        "description": "check RLS is not already enabled on \"organizationMember\"",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_class\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"relnamespace\" WHERE (\"n\".\"nspname\" = $1 AND \"c\".\"relname\" = $2 AND NOT (\"c\".\"relrowsecurity\"))) AS \"result\"",
+        "params": [
+          "public",
+          "organizationMember"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "enable row-level security on \"organizationMember\"",
+        "sql": "ALTER TABLE \"public\".\"organizationMember\" ENABLE ROW LEVEL SECURITY"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify row-level security is enabled on \"organizationMember\"",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_class\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"relnamespace\" WHERE (\"n\".\"nspname\" = $1 AND \"c\".\"relname\" = $2 AND \"c\".\"relrowsecurity\")) AS \"result\"",
+        "params": [
+          "public",
+          "organizationMember"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "rowLevelSecurity.public.share",
+    "label": "Enable row-level security on \"share\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "rowLevelSecurity",
+        "name": "share"
+      }
+    },
+    "precheck": [
+      {
+        "description": "check RLS is not already enabled on \"share\"",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_class\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"relnamespace\" WHERE (\"n\".\"nspname\" = $1 AND \"c\".\"relname\" = $2 AND NOT (\"c\".\"relrowsecurity\"))) AS \"result\"",
+        "params": [
+          "public",
+          "share"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "enable row-level security on \"share\"",
+        "sql": "ALTER TABLE \"public\".\"share\" ENABLE ROW LEVEL SECURITY"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify row-level security is enabled on \"share\"",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_class\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"relnamespace\" WHERE (\"n\".\"nspname\" = $1 AND \"c\".\"relname\" = $2 AND \"c\".\"relrowsecurity\")) AS \"result\"",
+        "params": [
+          "public",
+          "share"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "rowLevelSecurity.public.user",
+    "label": "Enable row-level security on \"user\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "rowLevelSecurity",
+        "name": "user"
+      }
+    },
+    "precheck": [
+      {
+        "description": "check RLS is not already enabled on \"user\"",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_class\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"relnamespace\" WHERE (\"n\".\"nspname\" = $1 AND \"c\".\"relname\" = $2 AND NOT (\"c\".\"relrowsecurity\"))) AS \"result\"",
+        "params": [
+          "public",
+          "user"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "enable row-level security on \"user\"",
+        "sql": "ALTER TABLE \"public\".\"user\" ENABLE ROW LEVEL SECURITY"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify row-level security is enabled on \"user\"",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_class\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"relnamespace\" WHERE (\"n\".\"nspname\" = $1 AND \"c\".\"relname\" = $2 AND \"c\".\"relrowsecurity\")) AS \"result\"",
+        "params": [
+          "public",
+          "user"
+        ]
+      }
+    ]
+  }
+]

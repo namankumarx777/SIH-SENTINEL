@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { cases, documentsForCase, type CaseRecord } from "@/lib/data";
+import { type CaseRecord } from "@/lib/data";
 import { Badge } from "@/app/_components/badge";
 import { Button } from "@/app/_components/button";
 import {
@@ -263,7 +263,7 @@ export function AiChatClient({ initialCases }: Props) {
         ];
       } else {
         responseText =
-          `Synthesized response based on ${documentsForCase(activeCase.id).length} documents in Case ${activeCase.number}:\n\nEvidence establishes coordinated offenses under Sections 420, 468, 471 IPC and Section 66D IT Act. Cryptographic hashes anchored to judicial private ledger. All data processed strictly inside local secure enclave without cloud egress.`;
+          `Synthesized response based on ${activeCase.documents} documents in Case ${activeCase.number}:\n\nEvidence establishes coordinated offenses under Sections 420, 468, 471 IPC and Section 66D IT Act. Cryptographic hashes anchored to judicial private ledger. All data processed strictly inside local secure enclave without cloud egress.`;
         citations = [
           {
             docName: "Case Docket: " + activeCase.number,

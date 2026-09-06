@@ -1,0 +1,247 @@
+// Prisma Next contract (PSL). Mirrors prisma/schema.prisma models for the
+// Prisma 8 ORM stack. This file is the source of truth for db schema creation.
+
+enum Role {
+  ADMIN
+  INVESTIGATOR
+  REVIEWER
+  FORENSIC
+  AUDITOR
+}
+
+enum PlatformRole {
+  PLATFORM_ADMIN
+}
+
+enum CaseStatus {
+  ACTIVE
+  UNDER_REVIEW
+  CLOSED
+  ARCHIVED
+}
+
+enum Classification {
+  RESTRICTED
+  CONFIDENTIAL
+  INTERNAL
+  PUBLIC
+}
+
+enum DocumentType {
+  FIR
+  STATEMENT
+  FORENSIC
+  LEGAL
+  EVIDENCE
+  REPORT
+  FILING
+}
+
+enum IntegrityStatus {
+  VERIFIED
+  PENDING
+  MISMATCH
+  REVOKED
+}
+
+enum DocumentStatus {
+  VERIFIED
+  REVIEW
+  DRAFT
+  REJECTED
+}
+
+enum AuditResult {
+  SUCCESS
+  INFO
+  WARNING
+  FAILURE
+}
+
+model Organization {
+  id        Uuid                 @id @default(uuid())
+  name      String
+  status    OrgStatus           @default(ACTIVE)
+  createdAt TimestamptzString    @default(now())
+  updatedAt temporal.updatedAtString()
+  members   OrganizationMember[]
+  cases     Case[]
+  auditLogs AuditLog[]
+
+  @@rls
+}
+
+enum OrgStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+model User {
+  id           Uuid                 @id @default(uuid())
+  authId       String               @unique
+  email        String               @unique
+  name         String
+  platformRole PlatformRole?
+  createdAt    TimestamptzString    @default(now())
+  updatedAt    temporal.updatedAtString()
+  orgMembers   OrganizationMember[]
+  caseMembers  CaseMember[]
+  uploadedDocs DocumentVersion[]    @relation("UploadedVersions")
+  approvedDocs DocumentVersion[]    @relation("ApprovedVersions")
+  sharedDocs   Share[]              @relation("SharedBy")
+  revokedDocs  Share[]              @relation("RevokedShares")
+  auditActions AuditLog[]           @relation("AuditActor")
+  createdInvitations Invitation[]  @relation("InvitationCreator")
+
+  @@rls
+}
+
+model OrganizationMember {
+  id             Uuid               @id @default(uuid())
+  organizationId Uuid
+  userId         Uuid
+  role           Role
+  department     String?
+  initials       String?
+  badge          String?
+  createdAt      TimestamptzString  @default(now())
+  updatedAt      temporal.updatedAtString()
+  organization   Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user           User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId])
+
+  @@rls
+}
+
+model Case {
+  id             Uuid             @id @default(uuid())
+  caseNumber     Int              @default(autoincrement())
+  title          String
+  description    String
+  status         CaseStatus       @default(ACTIVE)
+  classification Classification   @default(CONFIDENTIAL)
+  jurisdiction   String
+  organizationId Uuid
+  createdAt      TimestamptzString @default(now())
+  updatedAt      temporal.updatedAtString()
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  members        CaseMember[]
+  documents      Document[]
+  auditLogs      AuditLog[]
+
+  @@unique([organizationId, caseNumber])
+
+  @@rls
+}
+
+model CaseMember {
+  id        Uuid                @id @default(uuid())
+  caseId    Uuid
+  userId    Uuid
+  isLead    Boolean             @default(false)
+  createdAt TimestamptzString   @default(now())
+  updatedAt temporal.updatedAtString()
+  case      Case                @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  user      User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([caseId, userId])
+
+  @@rls
+}
+
+model Document {
+  id             Uuid               @id @default(uuid())
+  caseId         Uuid
+  name           String
+  type           DocumentType
+  classification Classification    @default(CONFIDENTIAL)
+  status         DocumentStatus    @default(VERIFIED)
+  integrity      IntegrityStatus   @default(VERIFIED)
+  description    String?
+  tags           String[]
+  createdAt      TimestamptzString @default(now())
+  updatedAt      temporal.updatedAtString()
+  case           Case               @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  versions       DocumentVersion[]
+  shares         Share[]
+  auditLogs      AuditLog[]
+
+  @@rls
+}
+
+model DocumentVersion {
+  id           Uuid                @id @default(uuid())
+  documentId   Uuid
+  version      String
+  uploadedById Uuid
+  uploadedAt   TimestamptzString   @default(now())
+  approverId   Uuid?
+  approvedAt   TimestamptzString?
+  hash         String
+  size         String
+  storagePath  String
+  notes        String?
+  current      Boolean             @default(false)
+  document     Document            @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  uploadedBy   User                @relation("UploadedVersions", fields: [uploadedById], references: [id], onDelete: Restrict)
+  approver     User?               @relation("ApprovedVersions", fields: [approverId], references: [id], onDelete: SetNull)
+
+  @@rls
+}
+
+model Share {
+  id            Uuid                @id @default(uuid())
+  documentId    Uuid
+  sharedById    Uuid
+  recipient     String
+  permission    String
+  expiration    TimestamptzString
+  justification String
+  revokedAt     TimestamptzString?
+  revokedById   Uuid?
+  createdAt     TimestamptzString   @default(now())
+  document      Document            @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  sharedBy      User                @relation("SharedBy", fields: [sharedById], references: [id], onDelete: Restrict)
+  revokedBy     User?               @relation("RevokedShares", fields: [revokedById], references: [id], onDelete: SetNull)
+
+  @@rls
+}
+
+model AuditLog {
+  id             Uuid               @id @default(uuid())
+  organizationId Uuid
+  caseId         Uuid?
+  documentId     Uuid?
+  actorId        Uuid
+  action         String
+  resource       String
+  meta           String?
+  result         AuditResult        @default(SUCCESS)
+  createdAt      TimestamptzString  @default(now())
+  organization   Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  case           Case?              @relation(fields: [caseId], references: [id], onDelete: SetNull)
+  document       Document?          @relation(fields: [documentId], references: [id], onDelete: SetNull)
+  actor          User               @relation("AuditActor", fields: [actorId], references: [id], onDelete: Restrict)
+
+  @@rls
+}
+
+model Invitation {
+  id             Uuid               @id @default(uuid())
+  organizationId Uuid
+  email         String
+  role          Role
+  token         String             @unique
+  expiresAt     TimestamptzString
+  acceptedAt    TimestamptzString?
+  createdAt     TimestamptzString  @default(now())
+  createdById   Uuid
+  organization   Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy     User              @relation("InvitationCreator", fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, email])
+  @@index([token])
+
+  @@rls
+}

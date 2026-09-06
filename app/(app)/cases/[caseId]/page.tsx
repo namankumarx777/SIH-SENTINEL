@@ -1,30 +1,36 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import {
-  activity,
-  documentsForCase,
-  findCase,
-  formatDate,
-  formatTime,
-} from "@/lib/data";
+import { formatDate, formatTime } from "@/lib/data";
 import { Avatar } from "@/app/_components/avatar";
 import { Badge } from "@/app/_components/badge";
 import {
   IconActivity,
-  IconArrowLeft,
   IconFile,
   IconShieldCheck,
   IconUsers,
 } from "@/app/_components/icons";
+import { findCaseForSession } from "@/lib/repos/cases";
+import { listAuditForCase } from "@/lib/repos/audit";
+import { db } from "@/lib/prisma";
+import { getPeopleByIds } from "@/lib/repos/people";
+import { getSessionUser } from "@/lib/session";
 
-export default async function CaseOverview({
-  params,
-}: PageProps<"/cases/[caseId]">) {
+interface PageProps {
+  params: Promise<{ caseId: string }>;
+}
+
+export default async function CaseOverview({ params }: PageProps) {
   const { caseId } = await params;
-  const c = findCase(caseId);
+  const c = await findCaseForSession(caseId);
   if (!c) notFound();
-  const docs = documentsForCase(caseId);
-  const recent = activity.filter((a) => a.caseId === caseId).slice(0, 4);
+
+  const docs = await db.orm.public.Document.where({ caseId }).all();
+  const recent = await listAuditForCase(caseId, 4);
+
+  const session = await getSessionUser();
+  const personIds = Array.from(new Set([c.lead, ...c.collaborators].filter(Boolean)));
+  const peopleMap = await getPeopleByIds(personIds, session.orgId);
+  const casePeople = personIds.map(id => peopleMap.get(id)).filter(p => !!p);
 
   return (
     <div className="grid grid-cols-1 gap-10 lg:grid-cols-[1.4fr_1fr]">
@@ -39,7 +45,7 @@ export default async function CaseOverview({
 
         <div className="mt-10 grid grid-cols-3 gap-6 border-y border-border py-6">
           <Stat label="Documents" value={String(c.documents)} />
-          <Stat label="Collaborators" value={String(c.collaborators.length + 1)} />
+          <Stat label="Collaborators" value={String(c.collaborators.length + (c.lead ? 1 : 0))} />
           <Stat label="Open shares" value="4" />
         </div>
 
@@ -54,7 +60,7 @@ export default async function CaseOverview({
             </Link>
           </div>
           <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-surface">
-            {docs.slice(0, 4).map((d) => (
+            {docs.slice(0, 4).map((d: any) => (
               <li key={d.id}>
                 <Link
                   href={`/cases/${caseId}/documents/${d.id}`}
@@ -69,11 +75,11 @@ export default async function CaseOverview({
                       {d.type} · {d.classification} · updated {formatTime(d.updatedAt)}
                     </div>
                   </div>
-                  {d.integrity === "verified" ? (
+                  {d.integrity === "VERIFIED" ? (
                     <Badge tone="verified" subtle>
                       verified
                     </Badge>
-                  ) : d.integrity === "mismatch" ? (
+                  ) : d.integrity === "MISMATCH" ? (
                     <Badge tone="danger" subtle>
                       mismatch
                     </Badge>
@@ -110,13 +116,8 @@ export default async function CaseOverview({
             <IconUsers size={13} /> People on this case
           </div>
           <ul className="space-y-3">
-            {[
-              { name: "Inspector Raj Sharma", role: "Lead investigator", initials: "RS" },
-              { name: "Anita Desai", role: "Legal review", initials: "AD" },
-              { name: "Vikram Iyer", role: "Forensic officer", initials: "VI" },
-              { name: "Neha Verma", role: "Auditor", initials: "NV" },
-            ].map((p) => (
-              <li key={p.name} className="flex items-center gap-3">
+            {casePeople.map((p) => (
+              <li key={p.id} className="flex items-center gap-3">
                 <Avatar person={p} size={28} />
                 <div className="leading-tight">
                   <div className="text-[13px] font-medium text-ink">{p.name}</div>
@@ -138,7 +139,7 @@ export default async function CaseOverview({
             </Link>
           </div>
           <ul className="space-y-3">
-            {recent.map((a) => (
+            {recent.map((a: any) => (
               <li key={a.id} className="flex items-start gap-3 rounded-lg border border-border bg-surface p-3">
                 <span className="mt-0.5 inline-flex h-7 w-7 items-center justify-center rounded-md bg-surface-2 text-muted">
                   <IconActivity size={12} />

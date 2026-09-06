@@ -19,6 +19,10 @@ enum Role {
   AUDITOR
 }
 
+enum PlatformRole {
+  PLATFORM_ADMIN
+}
+
 enum CaseStatus {
   ACTIVE
   UNDER_REVIEW
@@ -60,6 +64,7 @@ enum DocumentStatus {
 model Organization {
   id        String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   name      String
+  status    OrgStatus           @default(ACTIVE)
   createdAt DateTime             @default(now())
   updatedAt DateTime             @updatedAt
   members   OrganizationMember[]
@@ -67,19 +72,26 @@ model Organization {
   auditLogs AuditLog[]
 }
 
+enum OrgStatus {
+  ACTIVE
+  SUSPENDED
+}
+
 model User {
-  id           String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  authId       String               @unique // Supabase Auth user id
-  email        String               @unique
-  name         String
-  createdAt    DateTime             @default(now())
-  updatedAt    DateTime             @updatedAt
-  orgMembers   OrganizationMember[]
-  caseMembers  CaseMember[]
-  uploadedDocs DocumentVersion[]    @relation("UploadedVersions")
-  approvedDocs DocumentVersion[]    @relation("ApprovedVersions")
-  sharedDocs   Share[]              @relation("SharedBy")
-  auditActions AuditLog[]           @relation("AuditActor")
+  id                   String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  authId               String               @unique // Supabase Auth user id
+  email                String               @unique
+  name                 String
+  platformRole         PlatformRole?
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+  orgMembers           OrganizationMember[]
+  caseMembers          CaseMember[]
+  uploadedDocs         DocumentVersion[]    @relation("UploadedVersions")
+  approvedDocs         DocumentVersion[]    @relation("ApprovedVersions")
+  sharedDocs           Share[]              @relation("SharedBy")
+  auditActions         AuditLog[]           @relation("AuditActor")
+  createdInvitations   Invitation[]         @relation("InvitationCreator")
 }
 
 model OrganizationMember {
@@ -167,16 +179,19 @@ model DocumentVersion {
 }
 
 model Share {
-  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  documentId    String   @db.Uuid
-  sharedById    String   @db.Uuid
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  documentId    String    @db.Uuid
+  sharedById    String    @db.Uuid
   recipient     String
   permission    String
   expiration    DateTime
   justification String
+  revokedAt     DateTime?
+  revokedById   String?   @db.Uuid
   createdAt     DateTime @default(now())
   document      Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
   sharedBy      User     @relation("SharedBy", fields: [sharedById], references: [id], onDelete: Restrict)
+  revokedBy     User?    @relation("RevokedShares", fields: [revokedById], references: [id], onDelete: SetNull)
 }
 
 model AuditLog {
@@ -202,3 +217,21 @@ enum AuditResult {
   WARNING
   FAILURE
 }
+
+model Invitation {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String   @db.Uuid
+  email         String
+  role          Role
+  token         String   @unique
+  expiresAt     DateTime
+  acceptedAt    DateTime?
+  createdAt     DateTime @default(now())
+  createdById   String   @db.Uuid
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy     User     @relation("InvitationCreator", fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, email])
+  @@index([token])
+}
+

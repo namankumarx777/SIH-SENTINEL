@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { cases, documents, people, type CaseRecord, type DocumentRecord, type Person } from "@/lib/data";
+import type { CaseRecord, DocumentRecord, Person } from "@/lib/data";
 import {
   IconActivity,
   IconAlertOctagon,
@@ -36,6 +36,23 @@ export function CommandPalette({ open, onClose }: Props) {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const casesList: CaseRecord[] = [
+    { id: "c-0141", number: "CR-2026-0141", title: "Highway Evidence Collection", description: "Vehicle identification and witness statements", status: "active", classification: "confidential", lead: "u-raj", collaborators: [], documents: 8, createdAt: "2026-08-15T10:00:00Z", updatedAt: "2026-09-01T14:30:00Z", jurisdiction: "Central Bureau" },
+    { id: "c-0142", number: "CR-2026-0142", title: "Digital Integrity Review", description: "Blockchain anchored document verification", status: "active", classification: "restricted", lead: "u-arjun", collaborators: [], documents: 12, createdAt: "2026-08-20T09:00:00Z", updatedAt: "2026-09-05T16:45:00Z", jurisdiction: "Cyber Division" },
+  ];
+  const docsList: DocumentRecord[] = [
+    { id: "d-001", caseId: "c-0141", name: "Witness Statement - Singh.pdf", type: "Statement", classification: "confidential", status: "Verified", integrity: "verified", versions: [], createdAt: "2026-08-16T11:00:00Z", updatedAt: "2026-08-16T11:00:00Z", uploadedBy: "u-raj", description: "Witness statement regarding vehicle DL-14", tags: ["witness", "vehicle"], pages: 3 },
+    { id: "d-002", caseId: "c-0142", name: "Witness Statement.pdf", type: "Statement", classification: "restricted", status: "Review", integrity: "mismatch", versions: [], createdAt: "2026-08-21T10:00:00Z", updatedAt: "2026-09-02T09:15:00Z", uploadedBy: "u-anita", description: "Statement mentioning altered registration DL-14-CC-1102", tags: ["evidence", "vehicle", "tamper"], pages: 5 },
+    { id: "d-003", caseId: "c-0141", name: "Vehicle Registration.pdf", type: "Evidence", classification: "confidential", status: "Verified", integrity: "verified", versions: [], createdAt: "2026-08-17T14:00:00Z", updatedAt: "2026-08-17T14:00:00Z", uploadedBy: "u-vikram", description: "Vehicle registration extract", tags: ["vehicle", "registration"], pages: 2 },
+    { id: "d-004", caseId: "c-0142", name: "Chain of Custody.pdf", type: "Forensic", classification: "restricted", status: "Verified", integrity: "pending", versions: [], createdAt: "2026-08-22T08:00:00Z", updatedAt: "2026-08-25T12:00:00Z", uploadedBy: "u-vikram", description: "Digital chain of custody log", tags: ["forensic", "chain-of-custody"], pages: 8 },
+  ];
+  const peopleList: Person[] = [
+    { id: "u-raj", name: "Rajesh Kumar", role: "investigator", department: "Investigations", initials: "RK", badge: "INV-2019-044" },
+    { id: "u-anita", name: "Anita Sharma", role: "reviewer", department: "Legal", initials: "AS", badge: "REV-2020-012" },
+    { id: "u-vikram", name: "Vikram Singh", role: "forensic", department: "Forensics", initials: "VS", badge: "FOR-2018-007" },
+    { id: "u-neha", name: "Neha Gupta", role: "auditor", department: "Compliance", initials: "NG", badge: "AUD-2021-033" },
+  ];
 
   useEffect(() => {
     if (open) {
@@ -91,8 +108,8 @@ export function CommandPalette({ open, onClose }: Props) {
 
     // Special semantic queries
     if (term.includes("vehicle") || term.includes("dl-14") || term.includes("car")) {
-      const matchDocs = documents.filter((d) => d.id === "d-002" || d.caseId === "c-0141");
-      const matchCase = cases.filter((c) => c.id === "c-0141");
+      const matchDocs = docsList.filter((d) => d.id === "d-002" || d.caseId === "c-0141");
+      const matchCase = casesList.filter((c) => c.id === "c-0141");
       return [
         {
           kind: "action",
@@ -107,7 +124,7 @@ export function CommandPalette({ open, onClose }: Props) {
     }
 
     if (term.includes("mismatch") || term.includes("tamper") || term.includes("fail")) {
-      const tampered = documents.filter((d) => d.integrity === "mismatch");
+      const tampered = docsList.filter((d) => d.integrity === "mismatch");
       return [
         {
           kind: "action",
@@ -121,12 +138,12 @@ export function CommandPalette({ open, onClose }: Props) {
     }
 
     if (term.includes("review") || term.includes("pending")) {
-      const pending = documents.filter((d) => d.status === "Review" || d.integrity === "pending");
+      const pending = docsList.filter((d) => d.status === "Review" || d.integrity === "pending");
       return pending.map((d) => ({ kind: "doc" as const, item: d }));
     }
 
     // Standard multi-entity search
-    const cs: PaletteItem[] = cases
+    const cs: PaletteItem[] = casesList
       .filter(
         (c) =>
           c.number.toLowerCase().includes(term) ||
@@ -135,7 +152,7 @@ export function CommandPalette({ open, onClose }: Props) {
       )
       .map((c) => ({ kind: "case", item: c }));
 
-    const ds: PaletteItem[] = documents
+    const ds: PaletteItem[] = docsList
       .filter(
         (d) =>
           d.name.toLowerCase().includes(term) ||
@@ -145,7 +162,7 @@ export function CommandPalette({ open, onClose }: Props) {
       )
       .map((d) => ({ kind: "doc", item: d }));
 
-    const ps: PaletteItem[] = people
+    const ps: PaletteItem[] = peopleList
       .filter(
         (p) =>
           p.name.toLowerCase().includes(term) ||
