@@ -1,27 +1,48 @@
 "use client";
+
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
-import { cases, documents, people, type CaseRecord, type DocumentRecord } from "@/lib/data";
-import { IconArrowLeft, IconCircleCheck, IconFile, IconFolder, IconSearch, IconShieldCheck, IconUser } from "./icons";
+import { useRouter } from "next/navigation";
+import { cases, documents, people, type CaseRecord, type DocumentRecord, type Person } from "@/lib/data";
+import {
+  IconActivity,
+  IconAlertOctagon,
+  IconArrowLeft,
+  IconChevronRight,
+  IconCommand,
+  IconFile,
+  IconFolder,
+  IconLock,
+  IconSearch,
+  IconShieldCheck,
+  IconSparkles,
+  IconUpload,
+  IconUser,
+} from "./icons";
 
 interface Props {
   open: boolean;
   onClose: () => void;
 }
 
-type Result =
+type PaletteItem =
+  | { kind: "action"; title: string; subtitle: string; href: string; icon: React.ReactNode }
   | { kind: "case"; item: CaseRecord }
   | { kind: "doc"; item: DocumentRecord }
-  | { kind: "person"; item: (typeof people)[number] };
+  | { kind: "person"; item: Person };
 
 export function CommandPalette({ open, onClose }: Props) {
   const [q, setQ] = useState("");
-
-  const reset = () => setQ("");
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  const router = useRouter();
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (open) reset();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (open) {
+      setQ("");
+      setSelectedIndex(0);
+      setTimeout(() => inputRef.current?.focus(), 50);
+    }
   }, [open]);
 
   useEffect(() => {
@@ -33,127 +54,307 @@ export function CommandPalette({ open, onClose }: Props) {
     return () => window.removeEventListener("keydown", onKey);
   }, [open, onClose]);
 
-  const results = useMemo<Result[]>(() => {
+  const quickActions: PaletteItem[] = [
+    {
+      kind: "action",
+      title: "View Critical Integrity Mismatch",
+      subtitle: "Investigate Witness Statement.pdf flag on CR-2026-0142",
+      href: "/cases/c-0142/documents/d-002",
+      icon: <IconAlertOctagon size={14} className="text-red" />,
+    },
+    {
+      kind: "action",
+      title: "Case CR-2026-0142 Integrity Manifest",
+      subtitle: "Inspect Merkle tree & blockchain anchor block #1493412",
+      href: "/cases/c-0142/integrity",
+      icon: <IconShieldCheck size={14} className="text-green" />,
+    },
+    {
+      kind: "action",
+      title: "Open Full Immutable Audit Timeline",
+      subtitle: "Filterable narrative history across all cases",
+      href: "/audit",
+      icon: <IconActivity size={14} className="text-muted" />,
+    },
+    {
+      kind: "action",
+      title: "Review Time-Bound External Shares",
+      subtitle: "Manage 4 active court & lab share authorizations",
+      href: "/shared",
+      icon: <IconLock size={14} className="text-muted" />,
+    },
+  ];
+
+  const filteredItems = useMemo<PaletteItem[]>(() => {
     const term = q.trim().toLowerCase();
-    const cs: Result[] = cases
+    if (!term) return quickActions;
+
+    // Special semantic queries
+    if (term.includes("vehicle") || term.includes("dl-14") || term.includes("car")) {
+      const matchDocs = documents.filter((d) => d.id === "d-002" || d.caseId === "c-0141");
+      const matchCase = cases.filter((c) => c.id === "c-0141");
+      return [
+        {
+          kind: "action",
+          title: "Semantic Match: Vehicle DL-14 / Evidence Excerpt",
+          subtitle: "Witness Statement.pdf mentions altered registration DL-14-CC-1102",
+          href: "/cases/c-0142/documents/d-002",
+          icon: <IconSparkles size={14} className="text-amber" />,
+        },
+        ...matchDocs.map((d) => ({ kind: "doc" as const, item: d })),
+        ...matchCase.map((c) => ({ kind: "case" as const, item: c })),
+      ];
+    }
+
+    if (term.includes("mismatch") || term.includes("tamper") || term.includes("fail")) {
+      const tampered = documents.filter((d) => d.integrity === "mismatch");
+      return [
+        {
+          kind: "action",
+          title: "Integrity Discrepancy Analysis",
+          subtitle: "Current file differs from blockchain anchor",
+          href: "/cases/c-0142/documents/d-002",
+          icon: <IconAlertOctagon size={14} className="text-red" />,
+        },
+        ...tampered.map((d) => ({ kind: "doc" as const, item: d })),
+      ];
+    }
+
+    if (term.includes("review") || term.includes("pending")) {
+      const pending = documents.filter((d) => d.status === "Review" || d.integrity === "pending");
+      return pending.map((d) => ({ kind: "doc" as const, item: d }));
+    }
+
+    // Standard multi-entity search
+    const cs: PaletteItem[] = cases
       .filter(
         (c) =>
-          !term ||
           c.number.toLowerCase().includes(term) ||
           c.title.toLowerCase().includes(term) ||
-          c.jurisdiction.toLowerCase().includes(term),
+          c.jurisdiction.toLowerCase().includes(term)
       )
       .map((c) => ({ kind: "case", item: c }));
 
-    const ds: Result[] = documents
+    const ds: PaletteItem[] = documents
       .filter(
         (d) =>
-          !term ||
           d.name.toLowerCase().includes(term) ||
           d.type.toLowerCase().includes(term) ||
-          d.tags.some((t) => t.toLowerCase().includes(term)),
+          d.description.toLowerCase().includes(term) ||
+          d.tags.some((t) => t.toLowerCase().includes(term))
       )
       .map((d) => ({ kind: "doc", item: d }));
 
-    const ps: Result[] = people
+    const ps: PaletteItem[] = people
       .filter(
         (p) =>
-          !term ||
           p.name.toLowerCase().includes(term) ||
-          p.department.toLowerCase().includes(term),
+          p.department.toLowerCase().includes(term) ||
+          p.badge.toLowerCase().includes(term)
       )
       .map((p) => ({ kind: "person", item: p }));
 
-    return [...cs, ...ds, ...ps].slice(0, 12);
+    return [...cs, ...ds, ...ps].slice(0, 10);
   }, [q]);
+
+  // Keyboard navigation
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setSelectedIndex((idx) => (idx + 1) % Math.max(1, filteredItems.length));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setSelectedIndex((idx) => (idx - 1 + filteredItems.length) % Math.max(1, filteredItems.length));
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      const selected = filteredItems[selectedIndex];
+      if (!selected) return;
+
+      onClose();
+      if (selected.kind === "action") {
+        router.push(selected.href);
+      } else if (selected.kind === "case") {
+        router.push(`/cases/${selected.item.id}`);
+      } else if (selected.kind === "doc") {
+        router.push(`/cases/${selected.item.caseId}/documents/${selected.item.id}`);
+      } else if (selected.kind === "person") {
+        router.push(`/admin`);
+      }
+    }
+  };
 
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center pt-[12vh] anim-overlay" onClick={onClose}>
-      <div className="absolute inset-0 bg-ink/30 backdrop-blur-[2px]" />
+    <div
+      className="fixed inset-0 z-50 flex items-start justify-center pt-[10vh] px-4 anim-overlay"
+      onClick={onClose}
+    >
+      <div className="absolute inset-0 bg-ink/30 backdrop-blur-[4px]" />
+
       <div
         role="dialog"
         aria-modal="true"
-        className="relative w-full max-w-[640px] overflow-hidden rounded-xl border border-border bg-surface shadow-pop anim-pop"
+        aria-label="Spotlight Search"
+        className="relative w-full max-w-[620px] overflow-hidden rounded-2xl border border-border bg-surface shadow-pop anim-pop"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center gap-3 border-b border-border px-4 py-3.5">
-          <IconSearch size={15} className="text-muted" />
+        {/* Apple Spotlight Search Input */}
+        <div className="flex items-center gap-3 border-b border-border px-5 py-4">
+          <IconSearch size={18} className="text-muted shrink-0" />
           <input
-            autoFocus
+            ref={inputRef}
+            id="cmd-palette-input"
+            role="combobox"
+            aria-autocomplete="list"
+            aria-expanded={filteredItems.length > 0}
+            aria-controls="cmd-palette-listbox"
+            aria-activedescendant={filteredItems.length > 0 ? `cmd-item-${selectedIndex}` : undefined}
             value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Search cases, documents, people…"
-            className="flex-1 bg-transparent text-[14.5px] outline-none placeholder:text-subtle"
+            onChange={(e) => {
+              setQ(e.target.value);
+              setSelectedIndex(0);
+            }}
+            onKeyDown={handleKeyDown}
+            placeholder="Search cases, evidence, people, or ask Spotlight…"
+            className="flex-1 bg-transparent text-[16px] outline-none placeholder:text-muted/60 text-ink"
           />
-          <span className="inline-flex items-center gap-1 text-[11px] text-muted">
-            <IconArrowLeft size={11} className="rotate-180" />
+          <span className="hidden sm:inline-flex items-center gap-1 rounded border border-border bg-surface-2 px-1.5 py-0.5 font-mono text-[10px] text-muted">
             ESC
           </span>
         </div>
-        <div className="max-h-[420px] overflow-auto py-2">
-          {results.length === 0 ? (
-            <div className="px-5 py-10 text-center text-[13px] text-muted">
-              No matches for “{q}”.
+
+        {/* Search Results / Suggestions */}
+        <div id="cmd-palette-listbox" role="listbox" aria-label="Search results" className="max-h-[380px] overflow-y-auto p-2">
+          {filteredItems.length === 0 ? (
+            <div className="py-12 text-center text-[13px] text-muted">
+              No evidence or records found matching “{q}”.
             </div>
           ) : (
-            results.map((r) => <ResultRow key={`${r.kind}-${r.item.id}`} r={r} onSelect={onClose} />)
+            <div className="space-y-1">
+              {!q && (
+                <div className="px-3 py-1.5 text-[11px] font-medium uppercase tracking-wider text-muted">
+                  Suggested Actions
+                </div>
+              )}
+
+              {filteredItems.map((item, idx) => {
+                const isSelected = idx === selectedIndex;
+
+                if (item.kind === "action") {
+                  return (
+                    <Link
+                      key={item.title}
+                      id={`cmd-item-${idx}`}
+                      role="option"
+                      aria-selected={isSelected}
+                      href={item.href}
+                      onClick={onClose}
+                      onMouseEnter={() => setSelectedIndex(idx)}
+                      className={`flex items-center gap-3 rounded-lg px-3 py-2.5 transition-colors ${
+                        isSelected ? "bg-surface-2 text-ink" : "text-muted hover:bg-surface-2"
+                      }`}
+                    >
+                      <span className="shrink-0">{item.icon}</span>
+                      <div className="min-w-0 flex-1">
+                        <div className="text-[13.5px] font-medium text-ink leading-tight">
+                          {item.title}
+                        </div>
+                        <div className="text-[11.5px] text-muted leading-tight mt-0.5 truncate">
+                          {item.subtitle}
+                        </div>
+                      </div>
+                      <IconChevronRight size={13} className="text-muted/60" />
+                    </Link>
+                  );
+                }
+
+                if (item.kind === "case") {
+                  return (
+                    <Link
+                      key={item.item.id}
+                      href={`/cases/${item.item.id}`}
+                      onClick={onClose}
+                      onMouseEnter={() => setSelectedIndex(idx)}
+                      className={`flex items-center gap-3 rounded-lg px-3 py-2.5 transition-colors ${
+                        isSelected ? "bg-surface-2 text-ink" : "text-muted hover:bg-surface-2"
+                      }`}
+                    >
+                      <IconFolder size={16} className="text-muted shrink-0" />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-[11.5px] text-muted">{item.item.number}</span>
+                          <span className="text-[13.5px] font-medium text-ink truncate">{item.item.title}</span>
+                        </div>
+                        <div className="text-[11.5px] text-muted leading-tight mt-0.5 truncate">
+                          {item.item.jurisdiction} · {item.item.documents} documents
+                        </div>
+                      </div>
+                      <IconChevronRight size={13} className="text-muted/60" />
+                    </Link>
+                  );
+                }
+
+                if (item.kind === "doc") {
+                  return (
+                    <Link
+                      key={item.item.id}
+                      href={`/cases/${item.item.caseId}/documents/${item.item.id}`}
+                      onClick={onClose}
+                      onMouseEnter={() => setSelectedIndex(idx)}
+                      className={`flex items-center gap-3 rounded-lg px-3 py-2.5 transition-colors ${
+                        isSelected ? "bg-surface-2 text-ink" : "text-muted hover:bg-surface-2"
+                      }`}
+                    >
+                      <IconFile size={16} className="text-muted shrink-0" />
+                      <div className="min-w-0 flex-1">
+                        <div className="text-[13.5px] font-medium text-ink leading-tight truncate">
+                          {item.item.name}
+                        </div>
+                        <div className="text-[11.5px] text-muted leading-tight mt-0.5 truncate">
+                          {item.item.type} · Case {item.item.caseId.toUpperCase()} · {item.item.integrity}
+                        </div>
+                      </div>
+                      <IconChevronRight size={13} className="text-muted/60" />
+                    </Link>
+                  );
+                }
+
+                return (
+                  <Link
+                    key={item.item.id}
+                    href="/admin"
+                    onClick={onClose}
+                    onMouseEnter={() => setSelectedIndex(idx)}
+                    className={`flex items-center gap-3 rounded-lg px-3 py-2.5 transition-colors ${
+                      isSelected ? "bg-surface-2 text-ink" : "text-muted hover:bg-surface-2"
+                    }`}
+                  >
+                    <IconUser size={16} className="text-muted shrink-0" />
+                    <div className="min-w-0 flex-1">
+                      <div className="text-[13.5px] font-medium text-ink leading-tight truncate">
+                        {item.item.name}
+                      </div>
+                      <div className="text-[11.5px] text-muted leading-tight mt-0.5">
+                        {item.item.department} · {item.item.badge}
+                      </div>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
           )}
         </div>
-        <div className="flex items-center justify-between border-t border-border bg-surface-2 px-4 py-2 text-[11.5px] text-muted">
-          <span>Semantic search across cases, documents, and people.</span>
-          <span>{results.length} results</span>
+
+        {/* Footer info */}
+        <div className="flex items-center justify-between border-t border-border bg-surface-2/60 px-4 py-2.5 text-[11px] text-muted">
+          <div className="flex items-center gap-3">
+            <span>↑↓ to navigate</span>
+            <span>↵ to select</span>
+          </div>
+          <span className="font-mono">SecureCase Spotlight</span>
         </div>
       </div>
     </div>
-  );
-}
-
-function ResultRow({ r, onSelect }: { r: Result; onSelect: () => void }) {
-  const href =
-    r.kind === "case"
-      ? `/cases/${r.item.id}`
-      : r.kind === "doc"
-        ? `/cases/${r.item.caseId}/documents/${r.item.id}`
-        : `/admin#person-${r.item.id}`;
-  return (
-    <Link
-      href={href}
-      onClick={onSelect}
-      className="flex items-center gap-3 px-4 py-2.5 hover:bg-surface-2"
-    >
-      <span className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-border bg-surface-2 text-muted">
-        {r.kind === "case" ? (
-          <IconFolder size={14} />
-        ) : r.kind === "doc" ? (
-          <IconFile size={14} />
-        ) : (
-          <IconUser size={14} />
-        )}
-      </span>
-      <div className="flex-1">
-        <div className="text-[13.5px] font-medium text-ink">
-          {r.kind === "case" ? r.item.number : r.kind === "doc" ? r.item.name : r.item.name}
-        </div>
-        <div className="text-[12px] text-muted">
-          {r.kind === "case"
-            ? r.item.title
-            : r.kind === "doc"
-              ? `${r.item.type} · ${r.item.classification}`
-              : r.item.department}
-        </div>
-      </div>
-      {r.kind === "doc" ? (
-        <span className="inline-flex items-center gap-1 text-[11.5px] text-green">
-          <IconShieldCheck size={11} /> {r.item.integrity}
-        </span>
-      ) : null}
-      {r.kind === "case" ? (
-        <span className="inline-flex items-center gap-1 text-[11.5px] text-muted">
-          <IconCircleCheck size={11} /> {r.item.status.replace("_", " ")}
-        </span>
-      ) : null}
-    </Link>
   );
 }

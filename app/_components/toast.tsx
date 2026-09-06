@@ -3,7 +3,8 @@ import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { IconCheck, IconAlertTriangle, IconShieldCheck, IconX } from "./icons";
 
-type Tone = "success" | "info" | "warning" | "error";
+type Tone = "success" | "info" | "warning" | "error" | "danger";
+
 
 interface Toast {
   id: string;
@@ -49,6 +50,7 @@ const toneIcon: Record<Tone, ReactNode> = {
   info: <IconCheck size={14} />,
   warning: <IconAlertTriangle size={14} />,
   error: <IconAlertTriangle size={14} />,
+  danger: <IconAlertTriangle size={14} />,
 };
 
 const toneStyle: Record<Tone, string> = {
@@ -56,6 +58,7 @@ const toneStyle: Record<Tone, string> = {
   info: "text-blue",
   warning: "text-amber",
   error: "text-red",
+  danger: "text-red",
 };
 
 function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: () => void }) {

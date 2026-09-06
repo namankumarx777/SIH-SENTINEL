@@ -1,349 +1,363 @@
 import Link from "next/link";
 import {
-  CURRENT_USER,
   activity,
   cases,
   documents,
-  documentsForCase,
   findCase,
-  findDocument,
   findPerson,
   formatTime,
 } from "@/lib/data";
+import { getSessionUser } from "@/lib/session";
 import { Avatar } from "@/app/_components/avatar";
-import { Badge } from "@/app/_components/badge";
-import { Button } from "@/app/_components/button";
 import {
-  IconAlertOctagon,
-  IconAlertTriangle,
   IconChevronRight,
-  IconClock,
-  IconFile,
-  IconFolder,
-  IconShieldCheck,
-  IconShare,
-  IconSparkles,
-  IconUser,
-  IconUsers,
 } from "@/app/_components/icons";
-import { PageHeader } from "@/app/_components/page-header";
 
-export default function Dashboard() {
-  const attentionCount =
-    1 + // mismatch alert
-    1 + // pending review
-    1; // expiring share
-  const pendingReviews = documents.filter((d) => d.status === "Review").slice(0, 3);
+export const instant = false;
+
+export default async function Dashboard() {
+  const session = await getSessionUser();
+
   const mismatchDoc = documents.find((d) => d.integrity === "mismatch");
-  const recentCases = [...cases]
+  const pendingReviews = documents.filter((d) => d.status === "Review");
+  const activeCases = [...cases]
     .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
     .slice(0, 4);
-  const recentShares = activity
-    .filter((a) => a.action === "Shared")
-    .slice(0, 3);
-  const recentActivity = activity.slice(0, 6);
+  const recentActivity = activity.slice(0, 5);
+
+  const attentionCount =
+    (mismatchDoc ? 1 : 0) + pendingReviews.length + 1;
+
+  const firstName = session.user.name.split(" ")[0];
 
   return (
-    <>
-      <PageHeader
-        eyebrow={`${new Date("2026-09-03T12:00:00Z").toLocaleDateString("en-IN", { weekday: "long", day: "2-digit", month: "long" })}`}
-        title={
-          <>
-            Good morning, <span className="text-ink">{CURRENT_USER.name.split(" ")[0]}</span>.
-          </>
-        }
-        description={`${attentionCount} items require your attention today.`}
-      />
+    <div className="space-y-9">
+      {/* 1. Page Header (Apple-inspired Calm Typography) */}
+      <header className="space-y-1">
+        <div className="text-[11.5px] font-medium tracking-[0.08em] uppercase text-muted/70">
+          Thursday · 03 September 2026
+        </div>
+        <h1 className="text-[36px] sm:text-[38px] font-semibold tracking-[-0.03em] text-ink leading-tight">
+          Good morning, {firstName}.
+        </h1>
+        <p className="text-[14.5px] text-muted font-normal pt-0.5">
+          {attentionCount} items require your attention.
+        </p>
+      </header>
 
-      <section className="mb-12">
-        <div className="mb-4 flex items-center justify-between">
-          <div className="eyebrow">Priority</div>
-          <Link href="/audit" className="inline-flex items-center gap-1 text-[12.5px] text-muted hover:text-ink">
-            View audit <IconChevronRight size={12} />
+      {/* 2. Attention Required (Prioritized Operational Feed) */}
+      <section className="space-y-2.5">
+        <div className="flex items-center justify-between">
+          <h2 className="text-[12px] font-semibold uppercase tracking-[0.08em] text-muted">
+            Attention Required
+          </h2>
+          <Link
+            href="/audit"
+            className="group inline-flex items-center gap-1 text-[12.5px] text-muted hover:text-ink transition-colors"
+          >
+            <span>View audit activity</span>
+            <IconChevronRight size={12} className="transition-transform group-hover:translate-x-0.5" />
           </Link>
         </div>
 
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          {mismatchDoc ? (
-            <PriorityAlert
-              tone="danger"
-              icon={<IconAlertOctagon size={14} />}
-              title="Integrity mismatch"
-              meta={`Case ${findCase(mismatchDoc.caseId)?.number}`}
-              body={`${mismatchDoc.name} — current file differs from recorded version.`}
-              href={`/cases/${mismatchDoc.caseId}/documents/${mismatchDoc.id}`}
-              cta="Investigate"
-            />
-          ) : null}
-
-          <PriorityAlert
-            tone="warning"
-            icon={<IconClock size={14} />}
-            title="Pending review"
-            meta={`${pendingReviews.length} document${pendingReviews.length === 1 ? "" : "s"}`}
-            body={
-              pendingReviews[0]
-                ? `${pendingReviews[0].name} awaits reviewer approval.`
-                : "No pending reviews."
-            }
-            href={`/cases/${pendingReviews[0]?.caseId}/documents/${pendingReviews[0]?.id}`}
-            cta="Review"
-          />
-
-          <PriorityAlert
-            tone="info"
-            icon={<IconShare size={14} />}
-            title="Expiring access"
-            meta="Witness Statement.pdf"
-            body="Shared access expires in 4 days. Renew or revoke."
-            href="#"
-            cta="Manage"
-          />
-        </div>
-      </section>
-
-      <section className="mb-12">
-        <div className="mb-4 flex items-center justify-between">
-          <div className="eyebrow">Active cases</div>
-          <Link href="/cases" className="inline-flex items-center gap-1 text-[12.5px] text-muted hover:text-ink">
-            All cases <IconChevronRight size={12} />
-          </Link>
-        </div>
-
-        <div className="overflow-hidden rounded-xl border border-border bg-surface">
-          {recentCases.map((c, idx) => {
-            const lead = findPerson(c.lead);
-            const isLast = idx === recentCases.length - 1;
-            return (
-              <Link
-                key={c.id}
-                href={`/cases/${c.id}`}
-                className={`group flex items-center gap-6 px-6 py-5 transition-colors hover:bg-surface-2 ${isLast ? "" : "border-b border-border"}`}
-              >
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-md border border-border bg-surface-2 text-muted">
-                  <IconFolder size={18} />
+        <div className="overflow-hidden rounded-xl border border-border bg-surface divide-y divide-border">
+          {/* Priority 1: Critical Security Event (Strongest Visual Treatment) */}
+          {mismatchDoc && (
+            <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 bg-red-bg/25 border-l-4 border-l-red transition-colors hover:bg-red-bg/35">
+              <div className="space-y-1 min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="flex h-2 w-2 rounded-full bg-red animate-pulse" />
+                  <span className="font-mono text-[11px] font-semibold uppercase tracking-wider text-red">
+                    Critical Security Event
+                  </span>
+                  <span className="text-muted/40">·</span>
+                  <span className="text-[12px] font-medium text-red">Integrity mismatch</span>
                 </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono text-[12.5px] text-muted">{c.number}</span>
-                    <Badge tone={c.status === "active" ? "verified" : c.status === "under_review" ? "pending" : "muted"} subtle>
-                      {c.status.replace("_", " ")}
-                    </Badge>
-                  </div>
-                  <div className="mt-1 truncate text-[15px] font-semibold text-ink">{c.title}</div>
-                  <div className="mt-1.5 flex items-center gap-4 text-[12.5px] text-muted">
-                    {lead ? (
-                      <span className="inline-flex items-center gap-1.5">
-                        <Avatar person={lead} size={18} />
-                        {lead.name}
-                      </span>
-                    ) : null}
-                    <span>{c.documents} documents</span>
-                    <span>{c.collaborators.length} collaborators</span>
-                    <span>Updated {formatTime(c.updatedAt)}</span>
-                  </div>
+                <div className="text-[15.5px] font-semibold text-ink">
+                  {mismatchDoc.name}
                 </div>
-                <span className="text-muted opacity-0 transition-opacity group-hover:opacity-100">
-                  <IconChevronRight size={16} />
-                </span>
-              </Link>
-            );
-          })}
-        </div>
-      </section>
+                <p className="text-[13px] text-ink/80 leading-normal max-w-2xl">
+                  The current file differs from the recorded document fingerprint in Case {findCase(mismatchDoc.caseId)?.number ?? "CR-2026-0142"}.
+                </p>
+                <div className="pt-0.5 flex items-center gap-3 text-[11.5px] font-mono text-muted">
+                  <span>Block #1492840</span>
+                  <span>·</span>
+                  <span>FIPS 180-4 SHA-256 Divergence</span>
+                </div>
+              </div>
 
-      <section className="mb-12 grid grid-cols-1 gap-8 lg:grid-cols-3">
-        <div className="lg:col-span-2">
-          <div className="mb-4 flex items-center justify-between">
-            <div className="eyebrow">Recent activity</div>
-            <Link href="/audit" className="inline-flex items-center gap-1 text-[12.5px] text-muted hover:text-ink">
-              Full audit log <IconChevronRight size={12} />
-            </Link>
-          </div>
-          <div className="overflow-hidden rounded-xl border border-border bg-surface">
-            <ul className="divide-y divide-border">
-              {recentActivity.map((a) => {
-                const actor = findPerson(a.actor);
-                const caseRecord = a.caseId ? findCase(a.caseId) : undefined;
-                return (
-                  <li key={a.id} className="flex items-start gap-3 px-5 py-3.5">
-                    <Avatar person={actor} size={26} />
-                    <div className="min-w-0 flex-1">
-                      <div className="text-[13.5px] leading-relaxed">
-                        <span className="font-medium text-ink">{actor?.name ?? "System"}</span>{" "}
-                        <span className="text-muted">{a.action.toLowerCase()}</span>{" "}
-                        <span className="font-medium text-ink">{a.resource}</span>
-                        {caseRecord ? (
-                          <>
-                            {" "}
-                            <span className="text-muted">in</span>{" "}
-                            <Link
-                              href={`/cases/${caseRecord.id}`}
-                              className="font-mono text-[12.5px] text-muted hover:text-ink"
-                            >
-                              {caseRecord.number}
-                            </Link>
-                          </>
-                        ) : null}
-                      </div>
-                      <div className="mt-0.5 text-[12px] text-muted">{formatTime(a.at)}</div>
-                    </div>
-                    {a.result === "failure" ? (
-                      <Badge tone="danger" subtle>
-                        failure
-                      </Badge>
-                    ) : a.result === "warning" ? (
-                      <Badge tone="warning" subtle>
-                        info
-                      </Badge>
-                    ) : null}
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-        </div>
-
-        <div>
-          <div className="mb-4 flex items-center justify-between">
-            <div className="eyebrow">AI assist</div>
-            <span className="text-[11.5px] text-muted">Contextual</span>
-          </div>
-          <div className="rounded-xl border border-border bg-surface p-5">
-            <div className="flex items-center gap-2 text-[13.5px] font-medium text-ink">
-              <span className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-surface-2 text-muted">
-                <IconSparkles size={14} />
-              </span>
-              Suggestions
+              <div className="shrink-0 pt-1 sm:pt-0">
+                <Link
+                  href={`/cases/${mismatchDoc.caseId}/documents/${mismatchDoc.id}`}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-red px-3.5 py-2 text-[12.5px] font-medium text-white hover:bg-red/90 transition-colors shadow-xs"
+                >
+                  <span>Investigate tamper</span>
+                  <IconChevronRight size={13} />
+                </Link>
+              </div>
             </div>
-            <p className="mt-2 text-[12.5px] text-muted">
-              Suggested actions derived from your case context. Use as a starting point —
-              documents remain the source of truth.
-            </p>
-            <ul className="mt-5 space-y-3">
-              <AISuggestion
-                title="Compare witness statements"
-                body="3 statements in CR-2026-0142 may contain overlapping descriptions."
-                href="/cases/c-0142"
-              />
-              <AISuggestion
-                title="Summarize forensic report"
-                body="Generate a 1-page executive summary of Forensic Report.pdf."
-                href="/cases/c-0142/documents/d-003"
-              />
-              <AISuggestion
-                title="Find documents on DL… plates"
-                body="3 documents mention vehicle registrations matching DL pattern."
-                href="/cases/c-0141"
-              />
-            </ul>
+          )}
+
+          {/* Priority 2: Pending Review (Subtle Amber Indicator) */}
+          <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 transition-colors hover:bg-surface-2/60 border-l-4 border-l-amber/60">
+            <div className="space-y-1 min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <span className="flex h-2 w-2 rounded-full bg-amber" />
+                <span className="font-mono text-[11px] font-semibold uppercase tracking-wider text-amber">
+                  Pending Review
+                </span>
+              </div>
+              <div className="text-[15.5px] font-semibold text-ink">
+                {pendingReviews[0]?.name ?? "Forensic Report.pdf"}
+              </div>
+              <p className="text-[13px] text-muted leading-normal max-w-2xl">
+                Awaiting Legal Reviewer sign-off prior to court charge sheet annexation.
+              </p>
+              <div className="pt-0.5 flex items-center gap-3 text-[11.5px] font-mono text-muted">
+                <span>Legal Review Directorate</span>
+                <span>·</span>
+                <span>Case CR-2026-0142</span>
+              </div>
+            </div>
+
+            <div className="shrink-0 pt-1 sm:pt-0">
+              <Link
+                href={`/cases/${pendingReviews[0]?.caseId ?? "c-0142"}/documents/${pendingReviews[0]?.id ?? "d-003"}`}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface px-3.5 py-2 text-[12.5px] font-medium text-ink hover:bg-surface-2 hover:border-ink/30 transition-colors"
+              >
+                <span>Review evidence</span>
+                <IconChevronRight size={13} className="text-muted" />
+              </Link>
+            </div>
+          </div>
+
+          {/* Priority 3: Access Expiring (Neutral Gray Styling) */}
+          <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 transition-colors hover:bg-surface-2/60 border-l-4 border-l-transparent">
+            <div className="space-y-1 min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <span className="flex h-2 w-2 rounded-full bg-muted/60" />
+                <span className="font-mono text-[11px] font-semibold uppercase tracking-wider text-muted">
+                  Access Expiring
+                </span>
+              </div>
+              <div className="text-[15.5px] font-semibold text-ink">
+                District Court external access
+              </div>
+              <p className="text-[13px] text-muted leading-normal max-w-2xl">
+                Expires in 4 days. Time-bound judicial disclosure token revocation scheduled.
+              </p>
+              <div className="pt-0.5 flex items-center gap-3 text-[11.5px] font-mono text-muted">
+                <span>Case CR-2026-0141</span>
+                <span>·</span>
+                <span>Token ID: tok-court-d82</span>
+              </div>
+            </div>
+
+            <div className="shrink-0 pt-1 sm:pt-0">
+              <Link
+                href="/shared"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface px-3.5 py-2 text-[12.5px] font-medium text-ink hover:bg-surface-2 hover:border-ink/30 transition-colors"
+              >
+                <span>Manage access</span>
+                <IconChevronRight size={13} className="text-muted" />
+              </Link>
+            </div>
           </div>
         </div>
       </section>
 
-      <section>
-        <div className="mb-4 flex items-center justify-between">
-          <div className="eyebrow">Recent shares</div>
-          <Link href="/shared" className="inline-flex items-center gap-1 text-[12.5px] text-muted hover:text-ink">
-            All shares <IconChevronRight size={12} />
+      {/* 3. Active Investigations (Professional Case Workspace Row Layout) */}
+      <section className="space-y-2.5">
+        <div className="flex items-center justify-between">
+          <h2 className="text-[12px] font-semibold uppercase tracking-[0.08em] text-muted">
+            Active Investigations
+          </h2>
+          <Link
+            href="/cases"
+            className="group inline-flex items-center gap-1 text-[12.5px] text-muted hover:text-ink transition-colors"
+          >
+            <span>All cases ({cases.length})</span>
+            <IconChevronRight size={12} className="transition-transform group-hover:translate-x-0.5" />
           </Link>
         </div>
+
         <div className="overflow-hidden rounded-xl border border-border bg-surface">
-          {recentShares.map((s, idx) => {
-            const caseRec = s.caseId ? findCase(s.caseId) : undefined;
-            const doc = s.documentId ? findDocument(s.documentId) : undefined;
+          {/* Header Row */}
+          <div className="grid grid-cols-[1fr_180px_110px_110px_110px_32px] items-center gap-4 border-b border-border bg-surface-2/40 px-5 py-2.5 text-[11px] font-medium uppercase tracking-[0.08em] text-muted/80">
+            <div>Case</div>
+            <div>Lead Investigator</div>
+            <div>Status</div>
+            <div>Evidence</div>
+            <div className="text-right">Last Modified</div>
+            <div />
+          </div>
+
+          {/* Body Rows */}
+          <div className="divide-y divide-border">
+            {activeCases.map((c) => {
+              const lead = findPerson(c.lead);
+              return (
+                <Link
+                  key={c.id}
+                  href={`/cases/${c.id}`}
+                  className="group grid grid-cols-[1fr_180px_110px_110px_110px_32px] items-center gap-4 px-5 py-4 transition-colors hover:bg-surface-2/60 cursor-pointer"
+                >
+                  {/* Primary: Case Title + Technical Monospace ID + Scope */}
+                  <div className="min-w-0 pr-2">
+                    <div className="font-mono text-[11.5px] font-medium text-muted/90 tracking-tight">
+                      {c.number}
+                    </div>
+                    <div className="truncate text-[15px] font-semibold text-ink group-hover:text-black group-hover:underline mt-0.5">
+                      {c.title}
+                    </div>
+                    <div className="truncate text-[12px] text-muted mt-0.5">
+                      {c.jurisdiction} · {c.description}
+                    </div>
+                  </div>
+
+                  {/* Secondary: Lead Investigator */}
+                  <div className="flex items-center gap-2 text-[13px] text-ink min-w-0">
+                    <Avatar person={lead} size={22} />
+                    <span className="truncate font-medium">{lead?.name ?? "Lead"}</span>
+                  </div>
+
+                  {/* Secondary: Status (Restrained dot indicator, not an oversized pill) */}
+                  <div>
+                    <span className="inline-flex items-center gap-1.5 text-[12.5px] font-medium capitalize text-ink">
+                      <span
+                        className={`h-1.5 w-1.5 rounded-full ${
+                          c.status === "active"
+                            ? "bg-green"
+                            : c.status === "under_review"
+                            ? "bg-amber"
+                            : "bg-muted"
+                        }`}
+                      />
+                      <span>{c.status.replace("_", " ")}</span>
+                    </span>
+                  </div>
+
+                  {/* Tertiary: Evidence Count */}
+                  <div className="font-mono text-[12.5px] text-muted">
+                    {c.documents} artifacts
+                  </div>
+
+                  {/* Tertiary: Timestamp */}
+                  <div className="text-right font-mono text-[12px] text-muted">
+                    {formatTime(c.updatedAt)}
+                  </div>
+
+                  {/* Contextual Arrow on Hover */}
+                  <div className="text-right text-muted opacity-0 group-hover:opacity-100 transition-opacity">
+                    <IconChevronRight size={14} />
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
+      {/* 4. System Status (Quiet, Understated Trust Reassurance) */}
+      <section className="space-y-2.5">
+        <h2 className="text-[12px] font-semibold uppercase tracking-[0.08em] text-muted">
+          System Status
+        </h2>
+
+        <div className="rounded-xl border border-border bg-surface px-5 py-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 divide-y sm:divide-y-0 sm:divide-x divide-border">
+            <div className="flex items-center justify-between sm:justify-start sm:gap-2.5 sm:px-3 pt-2 sm:pt-0">
+              <span className="text-[12.5px] text-muted">Document integrity</span>
+              <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-green">
+                <span className="h-1.5 w-1.5 rounded-full bg-green" />
+                Healthy
+              </span>
+            </div>
+
+            <div className="flex items-center justify-between sm:justify-start sm:gap-2.5 sm:px-3 pt-2 sm:pt-0">
+              <span className="text-[12.5px] text-muted">Audit ledger</span>
+              <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-green">
+                <span className="h-1.5 w-1.5 rounded-full bg-green" />
+                Healthy
+              </span>
+            </div>
+
+            <div className="flex items-center justify-between sm:justify-start sm:gap-2.5 sm:px-3 pt-2 sm:pt-0">
+              <span className="text-[12.5px] text-muted">Access controls</span>
+              <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-green">
+                <span className="h-1.5 w-1.5 rounded-full bg-green" />
+                Healthy
+              </span>
+            </div>
+
+            <div className="flex items-center justify-between sm:justify-start sm:gap-2.5 sm:px-3 pt-2 sm:pt-0">
+              <span className="text-[12.5px] text-muted">Blockchain anchoring</span>
+              <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-green">
+                <span className="h-1.5 w-1.5 rounded-full bg-green" />
+                Operational
+              </span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* 5. Real-Time Audit Activity Feed */}
+      <section className="space-y-2.5">
+        <div className="flex items-center justify-between">
+          <h2 className="text-[12px] font-semibold uppercase tracking-[0.08em] text-muted">
+            Recent Activity
+          </h2>
+          <Link
+            href="/audit"
+            className="group inline-flex items-center gap-1 text-[12.5px] text-muted hover:text-ink transition-colors"
+          >
+            <span>Full tamper-evident ledger</span>
+            <IconChevronRight size={12} className="transition-transform group-hover:translate-x-0.5" />
+          </Link>
+        </div>
+
+        <div className="overflow-hidden rounded-xl border border-border bg-surface divide-y divide-border">
+          {recentActivity.map((event) => {
+            const actor = findPerson(event.actor);
+            const c = event.caseId ? findCase(event.caseId) : undefined;
+            const isFailure = event.result === "failure";
+
             return (
               <div
-                key={s.id}
-                className={`flex items-center gap-4 px-6 py-4 ${idx === recentShares.length - 1 ? "" : "border-b border-border"}`}
+                key={event.id}
+                className={`flex items-start gap-3.5 px-5 py-3.5 transition-colors hover:bg-surface-2/50 ${
+                  isFailure ? "bg-red-bg/15" : ""
+                }`}
               >
-                <span className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-border bg-surface-2 text-muted">
-                  <IconShare size={14} />
-                </span>
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-[13.5px] font-medium text-ink">
-                    {doc?.name ?? s.resource}
-                  </div>
-                  <div className="mt-0.5 text-[12px] text-muted">
-                    {findPerson(s.actor)?.name} · {caseRec?.number} · {formatTime(s.at)}
+                <Avatar person={actor} size={22} />
+                <div className="min-w-0 flex-1 text-[13px] leading-relaxed">
+                  <span className="font-semibold text-ink">
+                    {actor?.name ?? "System Enclave"}
+                  </span>{" "}
+                  <span className="text-muted">{event.action.toLowerCase()}</span>{" "}
+                  <span className="font-medium text-ink">{event.resource}</span>
+                  {c && (
+                    <span className="text-muted">
+                      {" "}in <span className="font-mono text-[11.5px] text-ink">{c.number}</span>
+                    </span>
+                  )}
+                  <div className="mt-0.5 text-[11px] text-muted/70 font-mono">
+                    {formatTime(event.at)}
+                    {event.meta && ` · ${event.meta}`}
                   </div>
                 </div>
-                <Badge tone="info" subtle>
-                  expires soon
-                </Badge>
+
+                {isFailure && (
+                  <span className="inline-flex items-center gap-1 font-mono text-[11px] text-red font-semibold uppercase">
+                    <span className="h-1.5 w-1.5 rounded-full bg-red" />
+                    mismatch
+                  </span>
+                )}
               </div>
             );
           })}
         </div>
       </section>
-    </>
-  );
-}
-
-function PriorityAlert({
-  tone,
-  icon,
-  title,
-  meta,
-  body,
-  cta,
-  href,
-}: {
-  tone: "danger" | "warning" | "info";
-  icon: React.ReactNode;
-  title: string;
-  meta: string;
-  body: string;
-  cta: string;
-  href: string;
-}) {
-  const toneClass =
-    tone === "danger"
-      ? "border-red/30 bg-red-bg"
-      : tone === "warning"
-        ? "border-amber/30 bg-amber-bg"
-        : "border-blue/30 bg-blue-bg";
-  const textClass =
-    tone === "danger" ? "text-red" : tone === "warning" ? "text-amber" : "text-blue";
-  return (
-    <Link
-      href={href}
-      className={`group flex flex-col gap-3 rounded-xl border p-5 transition-shadow hover:shadow-1 ${toneClass}`}
-    >
-      <div className="flex items-center gap-2 text-[12px] font-medium">
-        <span className={textClass}>{icon}</span>
-        <span className={textClass}>{title}</span>
-      </div>
-      <div>
-        <div className="font-mono text-[12px] text-muted">{meta}</div>
-        <div className="mt-1.5 text-[14px] font-semibold leading-snug text-ink">{body}</div>
-      </div>
-      <span className={`mt-1 inline-flex items-center gap-1 text-[12.5px] font-medium ${textClass}`}>
-        {cta}
-        <IconChevronRight size={12} />
-      </span>
-    </Link>
-  );
-}
-
-function AISuggestion({
-  title,
-  body,
-  href,
-}: {
-  title: string;
-  body: string;
-  href: string;
-}) {
-  return (
-    <li>
-      <Link
-        href={href}
-        className="group block rounded-md border border-border bg-surface-2 px-3.5 py-3 transition-colors hover:bg-surface-3"
-      >
-        <div className="text-[13.5px] font-medium text-ink">{title}</div>
-        <div className="mt-0.5 text-[12.5px] text-muted">{body}</div>
-      </Link>
-    </li>
+    </div>
   );
 }

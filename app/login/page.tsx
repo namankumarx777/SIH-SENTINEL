@@ -1,6 +1,20 @@
-import Link from "next/link";
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 export default function Login() {
+  const [showForgotMsg, setShowForgotMsg] = useState(false);
+  const router = useRouter();
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    // Demo application — any credentials are accepted.
+    // Set the default role cookie and navigate to the app.
+    document.cookie = "securecase_role=investigator; path=/; max-age=604800; samesite=lax";
+    router.push("/dashboard");
+  };
+
   return (
     <div className="grid min-h-screen w-full grid-cols-1 lg:grid-cols-[1.1fr_1fr]">
       <div className="relative hidden flex-col justify-between border-r border-border bg-surface p-12 lg:flex">
@@ -70,7 +84,12 @@ export default function Login() {
             <span className="text-[15px] font-semibold tracking-tight">SecureCase</span>
           </div>
 
-          <div className="mt-12 lg:mt-0">
+          {/* Demo notice */}
+          <div className="mt-6 lg:mt-0 rounded-lg border border-amber/30 bg-amber-bg px-4 py-3 text-[12.5px] text-amber">
+            <strong>Demo environment.</strong> Any credentials are accepted. Use the role switcher inside the app to switch personas.
+          </div>
+
+          <div className="mt-6">
             <div className="eyebrow mb-3">Sign in</div>
             <h2 className="t-h1 text-ink">Welcome back.</h2>
             <p className="mt-2 text-[13.5px] text-muted">
@@ -78,7 +97,7 @@ export default function Login() {
             </p>
 
             <form
-              action="/dashboard"
+              onSubmit={handleSubmit}
               className="mt-8 flex flex-col gap-4"
             >
               <Field label="Service ID" placeholder="insp-44219@cb.gov.in" type="email" defaultValue="raj.sharma@cb.gov.in" />
@@ -87,10 +106,29 @@ export default function Login() {
                 <label className="inline-flex items-center gap-2 text-[12.5px] text-muted">
                   <input type="checkbox" defaultChecked className="h-3.5 w-3.5 accent-ink" />
                   Trust this device for 7 days
+                  <span className="text-[11px] text-muted/60">(demo only)</span>
                 </label>
-                <Link href="#" className="text-[12.5px] text-muted hover:text-ink">
-                  Forgot password
-                </Link>
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setShowForgotMsg((v) => !v)}
+                    className="text-[12.5px] text-muted hover:text-ink"
+                  >
+                    Forgot password
+                  </button>
+                  {showForgotMsg && (
+                    <div className="absolute right-0 top-full mt-1.5 w-56 rounded-lg border border-border bg-surface p-3 shadow-pop text-[12px] text-muted z-10">
+                      Password recovery is not available in this demo environment. Any credentials are accepted.
+                      <button
+                        type="button"
+                        onClick={() => setShowForgotMsg(false)}
+                        className="mt-2 block text-ink font-medium hover:underline text-[12px]"
+                      >
+                        Dismiss
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
               <button
                 type="submit"
@@ -102,7 +140,7 @@ export default function Login() {
 
             <div className="mt-8 flex items-center gap-3 text-[11.5px] text-muted">
               <span className="h-px flex-1 bg-border" />
-              <span>Multi-factor required</span>
+              <span>Demo — no real authentication</span>
               <span className="h-px flex-1 bg-border" />
             </div>
 

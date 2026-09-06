@@ -47,7 +47,6 @@ export default function SharedPage() {
   return (
     <>
       <PageHeader
-        eyebrow="Sharing"
         title="Shared with others"
         description="Documents you or your team have shared externally. Each share is recorded and time-bound."
         meta={
@@ -74,9 +73,8 @@ export default function SharedPage() {
           return (
             <div
               key={s.id}
-              className={`grid grid-cols-[1fr_140px_1fr_140px_140px_140px_40px] items-center gap-3 px-5 py-4 transition-colors hover:bg-surface-2 ${
-                idx === shares.length - 1 ? "" : "border-b border-border"
-              }`}
+              className={`grid grid-cols-[1fr_140px_1fr_140px_140px_140px_40px] items-center gap-3 px-5 py-4 transition-colors hover:bg-surface-2 ${idx === shares.length - 1 ? "" : "border-b border-border"
+                }`}
             >
               <div className="text-[13.5px] font-medium text-ink">{s.document}</div>
               <div className="font-mono text-[12.5px] text-muted">{s.case}</div>

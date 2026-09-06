@@ -1,11 +1,18 @@
 "use client";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+
+import { useActionState, useEffect, useRef, useState, type ReactNode } from "react";
+import { useFormStatus } from "react-dom";
+import { cases, type DocumentType } from "@/lib/data";
+import { uploadDocumentAction, type ActionResult } from "@/lib/actions";
 import { Dialog } from "@/app/_components/overlay";
 import { Button } from "@/app/_components/button";
+import { Select, type SelectOption } from "@/app/_components/select";
 import {
   IconCheck,
   IconCircle,
   IconFile,
+  IconLock,
+  IconRefresh,
   IconShieldCheck,
   IconUpload,
   IconX,
@@ -13,263 +20,371 @@ import {
 
 interface Props {
   trigger: ReactNode;
+  defaultCaseId?: string;
   onUploaded?: () => void;
 }
 
-type Step = "select" | "processing" | "complete";
+type Stage = "ready" | "securing" | "hashing" | "anchoring" | "completed";
 
-const STAGES = [
-  { id: "upload", label: "Uploaded" },
-  { id: "hash", label: "Hash generated" },
-  { id: "scan", label: "Scanned" },
-  { id: "index", label: "Indexing" },
-  { id: "anchor", label: "Anchoring" },
-];
+const ACCEPTED = ".pdf,.e01,.raw,.pcap,.zip,application/pdf";
+const MAX_SIZE_GB = 4;
 
-export function UploadDialog({ trigger, onUploaded }: Props) {
+export function UploadDialog({ trigger, defaultCaseId = "c-0142", onUploaded }: Props) {
   const [open, setOpen] = useState(false);
-  const [step, setStep] = useState<Step>("select");
-  const [files, setFiles] = useState<{ name: string; size: string }[]>([
-    { name: "FIR.pdf", size: "318 KB" },
-    { name: "Witness Statement.pdf", size: "1.2 MB" },
-  ]);
-  const [docType, setDocType] = useState("FIR");
-  const [classification, setClassification] = useState("Confidential");
-  const [activeStage, setActiveStage] = useState(0);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const [stage, setStage] = useState<Stage>("ready");
+  const [caseId, setCaseId] = useState(defaultCaseId);
+  const [name, setName] = useState("");
+  const [type, setType] = useState<DocumentType>("Evidence");
+  const [classification, setClassification] = useState("confidential");
+  const [description, setDescription] = useState("");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [fileError, setFileError] = useState<string | null>(null);
+  const [isDragOver, setIsDragOver] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [state, formAction, isPending] = useActionState(uploadDocumentAction, null);
 
   useEffect(() => {
-    if (step !== "processing") return;
-    // Initialize stage after state transition
-    const init = () => setActiveStage(0);
-    const timer = setTimeout(init, 10);
-    const t = setInterval(() => {
-      setActiveStage((s) => {
-        if (s >= STAGES.length - 1) {
-          clearInterval(t);
-          setStep("complete");
-          return s;
-        }
-        return s + 1;
-      });
-    }, 600);
-    return () => {
-      clearTimeout(timer);
-      clearInterval(t);
-    };
-  }, [step]);
+    if (isPending) {
+      setStage("securing");
+      const t1 = setTimeout(() => setStage("hashing"), 400);
+      const t2 = setTimeout(() => setStage("anchoring"), 800);
+      return () => {
+        clearTimeout(t1);
+        clearTimeout(t2);
+      };
+    } else if (state?.success) {
+      setStage("completed");
+      onUploaded?.();
+    } else if (state?.error) {
+      setStage("ready");
+    }
+  }, [isPending, state, onUploaded]);
 
-  function reset() {
-    setStep("select");
-    setActiveStage(0);
-  }
+  const handleReset = () => {
+    setStage("ready");
+    setName("");
+    setDescription("");
+    setSelectedFile(null);
+    setFileError(null);
+    setIsDragOver(false);
+  };
+
+  const validateAndSetFile = (f: File) => {
+    setFileError(null);
+    if (f.size > MAX_SIZE_GB * 1024 ** 3) {
+      setFileError(`File exceeds ${MAX_SIZE_GB} GB limit.`);
+      return;
+    }
+    setSelectedFile(f);
+    // Pre-fill name if empty
+    if (!name) {
+      setName(f.name.replace(/\.[^/.]+$/, ""));
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    const file = e.dataTransfer.files[0];
+    if (file) validateAndSetFile(file);
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) validateAndSetFile(file);
+  };
 
   return (
     <>
       <span
         onClick={() => {
-          reset();
+          handleReset();
           setOpen(true);
         }}
-        className="inline-flex"
+        className="inline-flex cursor-pointer"
       >
         {trigger}
       </span>
+
       <Dialog
         open={open}
-        onClose={() => setOpen(false)}
-        title="Upload Documents"
-        description="Files are encrypted, hashed, and anchored before they leave this device."
+        onClose={() => {
+          if (stage !== "securing" && stage !== "hashing" && stage !== "anchoring") {
+            setOpen(false);
+          }
+        }}
+        title="Secure Evidence Intake"
+        description="Evidence files are bitstream-hashed and anchored to the judicial blockchain ledger prior to repository commit."
         size="lg"
         footer={
-          step === "select" ? (
-            <>
-              <Button variant="ghost" onClick={() => setOpen(false)}>
-                Cancel
-              </Button>
-              <Button
-                variant="primary"
-                iconLeft={<IconUpload size={13} />}
-                onClick={() => setStep("processing")}
-              >
-                Upload {files.length} file{files.length === 1 ? "" : "s"}
-              </Button>
-            </>
-          ) : step === "complete" ? (
+          stage === "completed" ? (
             <Button
               variant="primary"
               onClick={() => {
                 setOpen(false);
-                onUploaded?.();
+                handleReset();
               }}
             >
               Done
             </Button>
           ) : (
-            <Button variant="secondary" disabled>
-              Securing…
-            </Button>
+            <div className="flex items-center justify-between w-full">
+              <span className="text-[11.5px] text-muted font-mono">
+                ENCLAVE: AES-256 / SHA-256
+              </span>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  onClick={() => setOpen(false)}
+                  disabled={isPending}
+                >
+                  Cancel
+                </Button>
+                <SubmitButton isPending={isPending} />
+              </div>
+            </div>
           )
         }
       >
-        {step === "select" ? (
-          <div className="space-y-5">
-            <button
-              type="button"
-              onClick={() => inputRef.current?.click()}
-              className="flex w-full flex-col items-center justify-center rounded-xl border border-dashed border-border bg-surface-2 px-6 py-10 text-center transition-colors hover:bg-surface-3"
-            >
-              <span className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-border bg-surface text-muted">
-                <IconUpload size={16} />
-              </span>
-              <div className="mt-3 text-[14px] font-medium text-ink">
-                Drag files here
-              </div>
-              <div className="mt-1 text-[12.5px] text-muted">or click to browse</div>
-              <input
-                ref={inputRef}
-                type="file"
-                multiple
-                className="hidden"
-                onChange={(e) => {
-                  const list = e.target.files;
-                  if (!list) return;
-                  setFiles(
-                    Array.from(list).map((f) => ({
-                      name: f.name,
-                      size: `${Math.max(1, Math.round(f.size / 1024))} KB`,
-                    })),
-                  );
-                }}
-              />
-            </button>
-
-            {files.length > 0 ? (
-              <div>
-                <div className="eyebrow mb-2">Files</div>
-                <ul className="rounded-md border border-border bg-surface">
-                  {files.map((f, idx) => (
-                    <li
-                      key={`${f.name}-${idx}`}
-                      className={`flex items-center gap-3 px-4 py-2.5 ${
-                        idx === files.length - 1 ? "" : "border-b border-border"
-                      }`}
-                    >
-                      <span className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-surface-2 text-muted">
-                        <IconFile size={13} />
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <div className="truncate text-[13.5px] font-medium text-ink">{f.name}</div>
-                      </div>
-                      <div className="text-[12px] text-muted">{f.size}</div>
-                      <button
-                        className="text-muted hover:text-ink"
-                        onClick={() => setFiles(files.filter((_, i) => i !== idx))}
-                        aria-label="Remove"
-                      >
-                        <IconX size={12} />
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ) : null}
-
-            <div className="grid grid-cols-2 gap-4">
-              <Field label="Document type">
-                <select
-                  value={docType}
-                  onChange={(e) => setDocType(e.target.value)}
-                  className="h-9 w-full rounded-md border border-border bg-surface px-3 text-[13px] text-ink outline-none"
-                >
-                  {["FIR", "Statement", "Forensic", "Legal", "Evidence", "Report"].map((t) => (
-                    <option key={t}>{t}</option>
-                  ))}
-                </select>
-              </Field>
-              <Field label="Classification">
-                <select
-                  value={classification}
-                  onChange={(e) => setClassification(e.target.value)}
-                  className="h-9 w-full rounded-md border border-border bg-surface px-3 text-[13px] text-ink outline-none"
-                >
-                  {["Restricted", "Confidential", "Internal", "Public"].map((t) => (
-                    <option key={t}>{t}</option>
-                  ))}
-                </select>
-              </Field>
+        {stage === "completed" ? (
+          <div className="py-8 text-center space-y-4">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-green-bg text-green">
+              <IconShieldCheck size={28} />
             </div>
-
-            <Field label="Description">
-              <textarea
-                placeholder="Brief description for case context"
-                className="min-h-[72px] w-full rounded-md border border-border bg-surface p-3 text-[13.5px] outline-none"
-              />
-            </Field>
-          </div>
-        ) : null}
-
-        {step === "processing" || step === "complete" ? (
-          <div className="flex flex-col items-center justify-center px-4 py-6 text-center">
-            {step === "complete" ? (
-              <span className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-green-bg text-green">
-                <IconShieldCheck size={20} />
-              </span>
-            ) : (
-              <span className="inline-flex h-12 w-12 items-center justify-center rounded-full border border-border bg-surface">
-                <span className="h-2 w-2 animate-pulse rounded-full bg-ink" />
-              </span>
+            <div>
+              <h4 className="text-[16px] font-semibold text-ink">Evidence Cryptographically Secured</h4>
+              <p className="mt-1 text-[13px] text-muted max-w-md mx-auto">
+                {state?.message ?? "Bitstream hash successfully generated and anchored to blockchain block quorum."}
+              </p>
+            </div>
+            {state?.data && (
+              <div className="rounded-lg border border-border bg-surface-2 p-3 text-[12px] font-mono text-left max-w-md mx-auto">
+                <div className="text-muted">ID: {state.data.id}</div>
+                <div className="text-muted">Anchor: {state.data.anchor}</div>
+                <div className="text-green font-semibold">Status: ✓ Anchored & Verified</div>
+              </div>
             )}
-            <div className="mt-4 text-[15px] font-semibold text-ink">
-              {step === "complete" ? "Documents secured" : "Securing documents…"}
+          </div>
+        ) : isPending || stage === "anchoring" ? (
+          <div className="py-12 text-center space-y-6">
+            <div className="flex justify-center">
+              <span className="h-10 w-10 animate-spin text-ink">
+                <IconRefresh size={32} />
+              </span>
             </div>
-            <div className="mt-1 text-[12.5px] text-muted">
-              {step === "complete"
-                ? "All files have been hashed and anchored to the ledger."
-                : "Hashing, scanning, and anchoring are running. This usually takes under a minute."}
+            <div className="space-y-2">
+              <div className="text-[15px] font-semibold text-ink">
+                {stage === "securing" && "Securing bitstream into hardware enclave…"}
+                {stage === "hashing" && "Computing FIPS 180-4 SHA-256 cryptographic digest…"}
+                {stage === "anchoring" && "Anchoring hash to private judicial blockchain quorum…"}
+              </div>
+              <p className="text-[12px] text-muted">
+                Establishing immutable chain of custody before physical write.
+              </p>
             </div>
 
-            <ul className="mt-8 grid w-full max-w-md grid-cols-1 gap-1.5">
-              {STAGES.map((s, idx) => {
-                const done = activeStage > idx || step === "complete";
-                const active = activeStage === idx && step === "processing";
-                return (
-                  <li
-                    key={s.id}
-                    className="flex items-center gap-3 rounded-md border border-border bg-surface px-3.5 py-2.5 text-left"
-                  >
-                    <span
-                      className={
-                        done
-                          ? "inline-flex h-5 w-5 items-center justify-center rounded-full bg-green-bg text-green"
-                          : active
-                            ? "inline-flex h-5 w-5 items-center justify-center rounded-full bg-surface-2 text-ink"
-                            : "inline-flex h-5 w-5 items-center justify-center rounded-full bg-surface-2 text-subtle"
-                      }
-                    >
-                      {done ? <IconCheck size={11} /> : active ? <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-ink" /> : <IconCircle size={11} />}
-                    </span>
-                    <span
-                      className={`text-[13px] ${done ? "text-ink" : active ? "text-ink" : "text-muted"}`}
-                    >
-                      {s.label}
-                    </span>
-                  </li>
-                );
-              })}
-            </ul>
+            {/* Stepped Progress Indicator */}
+            <div className="max-w-xs mx-auto grid grid-cols-3 gap-2 text-[11px] text-muted">
+              <div className={`p-2 rounded border ${stage === "securing" ? "border-ink font-semibold" : "border-border"}`}>
+                1. Enclave
+              </div>
+              <div className={`p-2 rounded border ${stage === "hashing" ? "border-ink font-semibold" : "border-border"}`}>
+                2. SHA-256
+              </div>
+              <div className={`p-2 rounded border ${stage === "anchoring" ? "border-ink font-semibold" : "border-border"}`}>
+                3. Ledger
+              </div>
+            </div>
           </div>
-        ) : null}
+        ) : (
+          <form action={formAction} className="space-y-4 text-[13px]">
+            {state?.error && (
+              <div className="rounded-lg border border-red/40 bg-red-bg p-3 text-[12.5px] text-red font-medium">
+                {state.error}
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <label className="block text-[11px] font-semibold uppercase tracking-wider text-muted mb-1">
+                  Target Case Workspace
+                </label>
+                <Select
+                  size="md"
+                  name="caseId"
+                  value={caseId}
+                  onChange={setCaseId}
+                  searchable
+                  className="w-full"
+                  aria-label="Target case workspace"
+                  options={cases.map<SelectOption>((c) => ({
+                    value: c.id,
+                    label: c.number,
+                    description: c.title,
+                  }))}
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold uppercase tracking-wider text-muted mb-1">
+                  Document / Artifact Name
+                </label>
+                <input
+                  name="name"
+                  type="text"
+                  required
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="e.g. Forensic_Hash_Report.pdf"
+                  className="w-full rounded-md border border-border bg-surface px-3 py-2 text-[13px] outline-none"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <label className="block text-[11px] font-semibold uppercase tracking-wider text-muted mb-1">
+                  Evidence Classification
+                </label>
+                <Select
+                  size="md"
+                  name="classification"
+                  value={classification}
+                  onChange={setClassification}
+                  className="w-full"
+                  aria-label="Evidence classification"
+                  options={[
+                    { value: "confidential", label: "Confidential" },
+                    { value: "restricted", label: "Restricted / Top Secret" },
+                    { value: "internal", label: "Internal Investigative" },
+                    { value: "public", label: "Public Court Filing" },
+                  ]}
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold uppercase tracking-wider text-muted mb-1">
+                  Evidence Category
+                </label>
+                <Select
+                  size="md"
+                  name="type"
+                  value={type}
+                  onChange={(v) => setType(v as DocumentType)}
+                  className="w-full"
+                  aria-label="Evidence category"
+                  options={[
+                    { value: "Evidence", label: "Digital Evidence Artifact" },
+                    { value: "FIR", label: "First Information Report (FIR)" },
+                    { value: "Statement", label: "Witness / Deposition Statement" },
+                    { value: "Forensic", label: "Forensic Lab Extraction Report" },
+                    { value: "Legal", label: "Legal Charge Sheet / Court Filing" },
+                  ]}
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-semibold uppercase tracking-wider text-muted mb-1">
+                Chain of Custody Description
+              </label>
+              <textarea
+                name="description"
+                rows={3}
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="State the device origin, seizing officer, and seal verification numbers…"
+                className="w-full rounded-md border border-border bg-surface px-3 py-2 text-[13px] outline-none"
+              />
+            </div>
+
+            {/* Drag & Drop Functional Zone */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              name="file"
+              accept={ACCEPTED}
+              className="hidden"
+              onChange={handleFileChange}
+            />
+            <div
+              role="button"
+              tabIndex={0}
+              aria-label="Click or drag to upload a file"
+              onClick={() => fileInputRef.current?.click()}
+              onKeyDown={(e) => e.key === "Enter" && fileInputRef.current?.click()}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+              className={`rounded-xl border-2 border-dashed p-6 text-center transition-colors cursor-pointer ${
+                isDragOver
+                  ? "border-ink bg-surface-2 ring-2 ring-ink/20"
+                  : selectedFile
+                  ? "border-green/50 bg-green-bg/30"
+                  : "border-border bg-surface-2/40 hover:bg-surface-2"
+              }`}
+            >
+              {selectedFile ? (
+                <>
+                  <IconCheck size={20} className="mx-auto text-green mb-2" />
+                  <div className="text-[13px] font-medium text-ink">
+                    {selectedFile.name}
+                  </div>
+                  <div className="mt-1 text-[11.5px] text-muted">
+                    {(selectedFile.size / 1024 / 1024).toFixed(1)} MB · Click to replace
+                  </div>
+                </>
+              ) : (
+                <>
+                  <IconUpload size={20} className="mx-auto text-muted mb-2" />
+                  <div className="text-[13px] font-medium text-ink">
+                    {isDragOver ? "Drop file here" : "Drag and drop raw evidence file here, or click to browse"}
+                  </div>
+                  <div className="mt-1 text-[11.5px] text-muted">
+                    Accepts PDF, .E01, .raw, PCAP, or forensic bundles up to 4 GB
+                  </div>
+                </>
+              )}
+            </div>
+            {fileError && (
+              <p className="text-[12px] text-red">{fileError}</p>
+            )}
+          </form>
+        )}
       </Dialog>
     </>
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function SubmitButton({ isPending }: { isPending: boolean }) {
+  const { pending } = useFormStatus();
+  const loading = isPending || pending;
+
   return (
-    <div className="flex flex-col gap-1.5">
-      <span className="text-[12px] font-medium text-muted">{label}</span>
-      {children}
-    </div>
+    <Button
+      type="submit"
+      variant="primary"
+      disabled={loading}
+      iconLeft={
+        loading ? (
+          <IconRefresh size={13} className="animate-spin" />
+        ) : (
+          <IconShieldCheck size={13} />
+        )
+      }
+    >
+      {loading ? "Anchoring…" : "Intake & Anchor"}
+    </Button>
   );
 }

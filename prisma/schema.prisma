@@ -1,0 +1,204 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum Role {
+  ADMIN
+  INVESTIGATOR
+  REVIEWER
+  FORENSIC
+  AUDITOR
+}
+
+enum CaseStatus {
+  ACTIVE
+  UNDER_REVIEW
+  CLOSED
+  ARCHIVED
+}
+
+enum Classification {
+  RESTRICTED
+  CONFIDENTIAL
+  INTERNAL
+  PUBLIC
+}
+
+enum DocumentType {
+  FIR
+  STATEMENT
+  FORENSIC
+  LEGAL
+  EVIDENCE
+  REPORT
+  FILING
+}
+
+enum IntegrityStatus {
+  VERIFIED
+  PENDING
+  MISMATCH
+  REVOKED
+}
+
+enum DocumentStatus {
+  VERIFIED
+  REVIEW
+  DRAFT
+  REJECTED
+}
+
+model Organization {
+  id        String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name      String
+  createdAt DateTime             @default(now())
+  updatedAt DateTime             @updatedAt
+  members   OrganizationMember[]
+  cases     Case[]
+  auditLogs AuditLog[]
+}
+
+model User {
+  id           String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  authId       String               @unique // Supabase Auth user id
+  email        String               @unique
+  name         String
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+  orgMembers   OrganizationMember[]
+  caseMembers  CaseMember[]
+  uploadedDocs DocumentVersion[]    @relation("UploadedVersions")
+  approvedDocs DocumentVersion[]    @relation("ApprovedVersions")
+  sharedDocs   Share[]              @relation("SharedBy")
+  auditActions AuditLog[]           @relation("AuditActor")
+}
+
+model OrganizationMember {
+  id             String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String       @db.Uuid
+  userId         String       @db.Uuid
+  role           Role
+  department     String?
+  initials       String?
+  badge          String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId])
+}
+
+model Case {
+  id             String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  caseNumber     Int            @default(autoincrement())
+  title          String
+  description    String
+  status         CaseStatus     @default(ACTIVE)
+  classification Classification @default(CONFIDENTIAL)
+  jurisdiction   String
+  organizationId String         @db.Uuid
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  members        CaseMember[]
+  documents      Document[]
+  auditLogs      AuditLog[]
+
+  @@unique([organizationId, caseNumber])
+}
+
+model CaseMember {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  caseId    String   @db.Uuid
+  userId    String   @db.Uuid
+  isLead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  case      Case     @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([caseId, userId])
+}
+
+model Document {
+  id             String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  caseId         String            @db.Uuid
+  name           String
+  type           DocumentType
+  classification Classification    @default(CONFIDENTIAL)
+  status         DocumentStatus    @default(VERIFIED)
+  integrity      IntegrityStatus   @default(VERIFIED)
+  description    String?
+  tags           String[]
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  case           Case              @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  versions       DocumentVersion[]
+  shares         Share[]
+  auditLogs      AuditLog[]
+}
+
+model DocumentVersion {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  documentId   String    @db.Uuid
+  version      String
+  uploadedById String    @db.Uuid
+  uploadedAt   DateTime  @default(now())
+  approverId   String?   @db.Uuid
+  approvedAt   DateTime?
+  hash         String
+  size         String
+  storagePath  String
+  notes        String?
+  current      Boolean   @default(false)
+  document     Document  @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  uploadedBy   User      @relation("UploadedVersions", fields: [uploadedById], references: [id], onDelete: Restrict)
+  approver     User?     @relation("ApprovedVersions", fields: [approverId], references: [id], onDelete: SetNull)
+}
+
+model Share {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  documentId    String   @db.Uuid
+  sharedById    String   @db.Uuid
+  recipient     String
+  permission    String
+  expiration    DateTime
+  justification String
+  createdAt     DateTime @default(now())
+  document      Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  sharedBy      User     @relation("SharedBy", fields: [sharedById], references: [id], onDelete: Restrict)
+}
+
+model AuditLog {
+  id             String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String        @db.Uuid
+  caseId         String?       @db.Uuid
+  documentId     String?       @db.Uuid
+  actorId        String        @db.Uuid
+  action         String
+  resource       String
+  meta           String?
+  result         AuditResult   @default(SUCCESS)
+  createdAt      DateTime      @default(now())
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  case           Case?         @relation(fields: [caseId], references: [id], onDelete: SetNull)
+  document       Document?     @relation(fields: [documentId], references: [id], onDelete: SetNull)
+  actor          User          @relation("AuditActor", fields: [actorId], references: [id], onDelete: Restrict)
+}
+
+enum AuditResult {
+  SUCCESS
+  INFO
+  WARNING
+  FAILURE
+}
